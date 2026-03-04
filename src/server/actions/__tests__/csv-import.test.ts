@@ -236,21 +236,21 @@ describe('csv-import', () => {
       )
     })
 
-    it('defaults to "in_progress" for unknown status', async () => {
+    it('defaults to "not_started" for unknown status', async () => {
       const csv = 'Title,Status\nTask,pending'
       await importCsv(csv)
 
       expect(mockValues).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'in_progress' })
+        expect.objectContaining({ status: 'not_started' })
       )
     })
 
-    it('defaults to "in_progress" when status is empty', async () => {
+    it('defaults to "not_started" when status is empty', async () => {
       const csv = 'Title,Status\nTask,'
       await importCsv(csv)
 
       expect(mockValues).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'in_progress' })
+        expect.objectContaining({ status: 'not_started' })
       )
     })
   })

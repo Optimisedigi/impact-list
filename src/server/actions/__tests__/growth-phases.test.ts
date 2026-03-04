@@ -10,12 +10,18 @@ const mockUpdate = vi.fn(() => ({ set: mockSet }))
 const mockDeleteWhere = vi.fn()
 const mockDelete = vi.fn(() => ({ where: mockDeleteWhere }))
 
-// Track all update calls to verify deactivate-all then activate-one sequence
+// Mock select chain for setActivePhase's phase lookup
+const mockSelectWhere = vi.fn()
+const mockSelectFrom = vi.fn(() => ({ where: mockSelectWhere }))
+const mockSelect = vi.fn(() => ({ from: mockSelectFrom }))
+
+// Track all update calls to verify deactivate-by-timeframe then activate-one sequence
 let updateCallLog: Array<{ setArg: unknown; whereArg?: unknown }>
 
 vi.mock('@/db', () => ({
   db: {
     insert: (...args: unknown[]) => mockInsert(...args),
+    select: (...args: unknown[]) => mockSelect(...args),
     update: (...args: unknown[]) => {
       const setFn = vi.fn((setArg: unknown) => {
         const entry: { setArg: unknown; whereArg?: unknown } = { setArg }
@@ -36,11 +42,12 @@ vi.mock('@/db', () => ({
 }))
 
 vi.mock('@/db/schema', () => ({
-  growthPhases: { id: 'growthPhases.id', isActive: 'growthPhases.isActive' },
+  growthPhases: { id: 'growthPhases.id', isActive: 'growthPhases.isActive', timeframe: 'growthPhases.timeframe' },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col, val) => ({ col, val })),
+  and: vi.fn((...args) => ({ and: args })),
 }))
 
 vi.mock('next/cache', () => ({
@@ -59,11 +66,12 @@ describe('growth-phases actions', () => {
   })
 
   describe('createPhase', () => {
-    it('inserts with provided name, description, and focusAreas', async () => {
+    it('inserts with provided name, description, focusAreas, and timeframe', async () => {
       const data = {
         name: 'Growth Phase',
         description: 'Description',
         focusAreas: 'Sales, Marketing',
+        timeframe: '90_day',
       }
 
       await createPhase(data)
@@ -73,16 +81,18 @@ describe('growth-phases actions', () => {
         name: 'Growth Phase',
         description: 'Description',
         focusAreas: 'Sales, Marketing',
+        timeframe: '90_day',
       })
     })
 
-    it('sets description and focusAreas to null when not provided', async () => {
+    it('sets description and focusAreas to null, timeframe to 90_day when not provided', async () => {
       await createPhase({ name: 'Minimal Phase' })
 
       expect(mockValues).toHaveBeenCalledWith({
         name: 'Minimal Phase',
         description: null,
         focusAreas: null,
+        timeframe: '90_day',
       })
     })
 
@@ -126,18 +136,31 @@ describe('growth-phases actions', () => {
   })
 
   describe('setActivePhase', () => {
-    it('makes two update calls: deactivate all, then activate one', async () => {
+    beforeEach(() => {
+      // Mock the select query to return a phase with a timeframe
+      mockSelectWhere.mockResolvedValue([{ id: 4, name: 'Phase 4', timeframe: '90_day' }])
+    })
+
+    it('first selects the phase to determine its timeframe', async () => {
+      await setActivePhase(4)
+
+      expect(mockSelect).toHaveBeenCalled()
+      expect(mockSelectFrom).toHaveBeenCalledWith(growthPhases)
+      expect(mockSelectWhere).toHaveBeenCalledWith({ col: 'growthPhases.id', val: 4 })
+    })
+
+    it('makes two update calls: deactivate by timeframe, then activate one', async () => {
       await setActivePhase(4)
 
       expect(updateCallLog).toHaveLength(2)
     })
 
-    it('first deactivates all phases with isActive: false (no where clause)', async () => {
+    it('first deactivates phases with the same timeframe', async () => {
       await setActivePhase(4)
 
       expect(updateCallLog[0].setArg).toEqual({ isActive: false })
-      // The first update should NOT have a where clause (deactivates ALL)
-      expect(updateCallLog[0].whereArg).toBeUndefined()
+      // The first update filters by timeframe
+      expect(updateCallLog[0].whereArg).toEqual({ col: 'growthPhases.timeframe', val: '90_day' })
     })
 
     it('then activates the selected phase with isActive: true', async () => {
@@ -147,7 +170,18 @@ describe('growth-phases actions', () => {
       expect(updateCallLog[1].whereArg).toEqual({ col: 'growthPhases.id', val: 4 })
     })
 
+    it('does nothing if the phase is not found', async () => {
+      mockSelectWhere.mockResolvedValueOnce([])
+
+      await setActivePhase(999)
+
+      expect(updateCallLog).toHaveLength(0)
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
+
     it('revalidates /settings and /focus', async () => {
+      mockSelectWhere.mockResolvedValue([{ id: 1, name: 'Phase 1', timeframe: '90_day' }])
+
       await setActivePhase(1)
 
       expect(revalidatePath).toHaveBeenCalledWith('/settings')

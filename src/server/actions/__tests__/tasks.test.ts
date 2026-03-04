@@ -9,12 +9,15 @@ const mockInsert = vi.fn(() => ({ values: mockValues }))
 const mockUpdate = vi.fn(() => ({ set: mockSet }))
 const mockDeleteWhere = vi.fn()
 const mockDelete = vi.fn(() => ({ where: mockDeleteWhere }))
+const mockSelectFrom = vi.fn(() => ({ where: vi.fn().mockResolvedValue([]) }))
+const mockSelect = vi.fn(() => ({ from: mockSelectFrom }))
 
 vi.mock('@/db', () => ({
   db: {
     insert: (...args: unknown[]) => mockInsert(...args),
     update: (...args: unknown[]) => mockUpdate(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
+    select: (...args: unknown[]) => mockSelect(...args),
   },
 }))
 
@@ -24,13 +27,23 @@ vi.mock('@/db/schema', () => ({
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col, val) => ({ col, val })),
+  inArray: vi.fn((col, vals) => ({ col, vals })),
 }))
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-import { createTask, updateTask, updateTaskField, deleteTask } from '../tasks'
+import {
+  createTask,
+  updateTask,
+  updateTaskField,
+  deleteTask,
+  deleteTasks,
+  duplicateTasks,
+  dismissFromFocus,
+  bulkUpdateField,
+} from '../tasks'
 import { revalidatePath } from 'next/cache'
 import { tasks } from '@/db/schema'
 
@@ -154,6 +167,168 @@ describe('tasks actions', () => {
 
     it('revalidates /tasks and /focus paths', async () => {
       await deleteTask(1)
+
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+    })
+  })
+
+  describe('deleteTasks', () => {
+    it('does nothing when given an empty array', async () => {
+      await deleteTasks([])
+
+      expect(mockDelete).not.toHaveBeenCalled()
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
+
+    it('calls db.delete with inArray for multiple ids', async () => {
+      await deleteTasks([1, 2, 3])
+
+      expect(mockDelete).toHaveBeenCalledWith(tasks)
+      expect(mockDeleteWhere).toHaveBeenCalledWith({ col: 'tasks.id', vals: [1, 2, 3] })
+    })
+
+    it('revalidates /tasks and /focus paths', async () => {
+      await deleteTasks([5])
+
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+    })
+  })
+
+  describe('duplicateTasks', () => {
+    it('returns empty array when given an empty ids array', async () => {
+      const result = await duplicateTasks([])
+
+      expect(result).toEqual([])
+      expect(mockSelect).not.toHaveBeenCalled()
+    })
+
+    it('selects originals then inserts cloned tasks', async () => {
+      const originals = [
+        {
+          id: 1,
+          title: 'Task A',
+          category: 'admin',
+          status: 'in_progress',
+          toComplete: 'today',
+          client: 'Acme',
+          deadline: '2026-03-10',
+          estimatedHours: 5,
+          description: 'Desc A',
+          priorityScore: 9,
+          leverageScore: 8,
+          sequenceReason: 'Do first',
+          actualHours: 2,
+          completedAt: null,
+        },
+      ]
+      const mockFromWhere = vi.fn().mockResolvedValue(originals)
+      mockSelectFrom.mockReturnValueOnce({ where: mockFromWhere })
+      mockReturning.mockResolvedValueOnce([{ id: 10, title: 'Task A' }])
+
+      const result = await duplicateTasks([1])
+
+      expect(mockSelect).toHaveBeenCalled()
+      expect(mockSelectFrom).toHaveBeenCalledWith(tasks)
+      expect(mockInsert).toHaveBeenCalledWith(tasks)
+      // Verify cloned data strips scores and actualHours
+      const insertedValues = mockValues.mock.calls[0][0]
+      expect(insertedValues[0].title).toBe('Task A')
+      expect(insertedValues[0].priorityScore).toBeNull()
+      expect(insertedValues[0].leverageScore).toBeNull()
+      expect(insertedValues[0].sequenceReason).toBeNull()
+      expect(insertedValues[0].actualHours).toBeNull()
+      expect(insertedValues[0].completedAt).toBeNull()
+      expect(result).toEqual([{ id: 10, title: 'Task A' }])
+    })
+
+    it('revalidates /tasks and /focus paths', async () => {
+      const mockFromWhere = vi.fn().mockResolvedValue([
+        { id: 1, title: 'T', category: 'admin', status: 'not_started', toComplete: null, client: null, deadline: null, estimatedHours: null, description: null },
+      ])
+      mockSelectFrom.mockReturnValueOnce({ where: mockFromWhere })
+      mockReturning.mockResolvedValueOnce([{ id: 2, title: 'T' }])
+
+      await duplicateTasks([1])
+
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+    })
+  })
+
+  describe('dismissFromFocus', () => {
+    it('sets dismissedFromFocus to a timestamp string', async () => {
+      const beforeTime = new Date().toISOString()
+
+      await dismissFromFocus(4)
+
+      expect(mockUpdate).toHaveBeenCalledWith(tasks)
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.dismissedFromFocus).toBeDefined()
+      expect(typeof setArg.dismissedFromFocus).toBe('string')
+      expect(setArg.dismissedFromFocus >= beforeTime).toBe(true)
+    })
+
+    it('filters by task id using eq', async () => {
+      await dismissFromFocus(4)
+
+      expect(mockWhere).toHaveBeenCalledWith({ col: 'tasks.id', val: 4 })
+    })
+
+    it('revalidates /focus only (not /tasks)', async () => {
+      await dismissFromFocus(1)
+
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+      expect(revalidatePath).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('bulkUpdateField', () => {
+    it('does nothing when given an empty ids array', async () => {
+      await bulkUpdateField([], 'status', 'done')
+
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(revalidatePath).not.toHaveBeenCalled()
+    })
+
+    it('updates the specified field for multiple ids using inArray', async () => {
+      await bulkUpdateField([1, 2, 3], 'status', 'done')
+
+      expect(mockUpdate).toHaveBeenCalledWith(tasks)
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.status).toBe('done')
+      expect(setArg.updatedAt).toBeDefined()
+      expect(mockWhere).toHaveBeenCalledWith({ col: 'tasks.id', vals: [1, 2, 3] })
+    })
+
+    it('sets completedAt when status is changed to done', async () => {
+      const beforeTime = new Date().toISOString()
+
+      await bulkUpdateField([1], 'status', 'done')
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.completedAt).toBeDefined()
+      expect(setArg.completedAt >= beforeTime).toBe(true)
+    })
+
+    it('sets completedAt to null when status is changed to non-done', async () => {
+      await bulkUpdateField([1], 'status', 'in_progress')
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.completedAt).toBeNull()
+    })
+
+    it('does not set completedAt when field is not status', async () => {
+      await bulkUpdateField([1, 2], 'category', 'admin')
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.completedAt).toBeUndefined()
+      expect(setArg.category).toBe('admin')
+    })
+
+    it('revalidates /tasks and /focus paths', async () => {
+      await bulkUpdateField([1], 'title', 'Updated')
 
       expect(revalidatePath).toHaveBeenCalledWith('/tasks')
       expect(revalidatePath).toHaveBeenCalledWith('/focus')

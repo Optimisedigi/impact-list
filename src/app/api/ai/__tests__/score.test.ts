@@ -20,19 +20,29 @@ vi.mock('drizzle-orm', () => ({
 }))
 
 const mockGetAllTasks = vi.fn()
-const mockGetActivePhase = vi.fn()
+const mockGetActiveGoals = vi.fn()
 const mockGetCurrentTargets = vi.fn()
+const mockGetWeeklyPriorities = vi.fn()
+const mockGetBusinessContext = vi.fn()
 
 vi.mock('@/server/queries/tasks', () => ({
   getAllTasks: () => mockGetAllTasks(),
 }))
 
 vi.mock('@/server/queries/growth-phases', () => ({
-  getActivePhase: () => mockGetActivePhase(),
+  getActiveGoals: () => mockGetActiveGoals(),
 }))
 
 vi.mock('@/server/actions/category-targets', () => ({
   getCurrentTargets: () => mockGetCurrentTargets(),
+}))
+
+vi.mock('@/server/actions/weekly-priorities', () => ({
+  getWeeklyPriorities: () => mockGetWeeklyPriorities(),
+}))
+
+vi.mock('@/server/actions/business-context', () => ({
+  getBusinessContext: () => mockGetBusinessContext(),
 }))
 
 // Stub global fetch
@@ -104,8 +114,10 @@ describe('AI Score API Route - POST', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAllTasks.mockResolvedValue(sampleTasks)
-    mockGetActivePhase.mockResolvedValue(samplePhase)
+    mockGetActiveGoals.mockResolvedValue({ goal90: samplePhase, goal180: null })
     mockGetCurrentTargets.mockResolvedValue(sampleTargets)
+    mockGetWeeklyPriorities.mockResolvedValue(null)
+    mockGetBusinessContext.mockResolvedValue(null)
     setApiKey('sk-ant-valid-key-12345')
   })
 
