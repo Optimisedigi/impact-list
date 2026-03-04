@@ -8,7 +8,7 @@ import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
 type AllocationData = { category: string; totalHours: number }[];
-type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month";
+type PeriodKey = "this_week" | "last_week" | "last_month" | "all_time";
 
 export function TimeAllocationTracker({
   initialData,
@@ -40,14 +40,14 @@ export function TimeAllocationTracker({
   return (
     <Card className="glass">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">Time Allocation</CardTitle>
           <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
-            <TabsList className="h-7">
+            <TabsList className="h-7 flex-wrap">
               <TabsTrigger value="this_week" className="text-xs px-2 py-1">This Week</TabsTrigger>
               <TabsTrigger value="last_week" className="text-xs px-2 py-1">Last Week</TabsTrigger>
-              <TabsTrigger value="this_month" className="text-xs px-2 py-1">This Month</TabsTrigger>
               <TabsTrigger value="last_month" className="text-xs px-2 py-1">Last Month</TabsTrigger>
+              <TabsTrigger value="all_time" className="text-xs px-2 py-1">All Time</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -61,10 +61,6 @@ export function TimeAllocationTracker({
             const hours = entry?.totalHours ?? 0;
             const actual = totalHours > 0 ? (hours / totalHours) * 100 : 0;
             const target = targetMap[key] ?? 0;
-            const diff = Math.abs(actual - target);
-            const barColor =
-              diff <= 5 ? "bg-green-500" : diff <= 10 ? "bg-yellow-500" : "bg-red-500";
-
             return (
               <div key={key}>
                 <div className="mb-1 flex items-center justify-between text-xs">
@@ -75,8 +71,8 @@ export function TimeAllocationTracker({
                 </div>
                 <div className="relative h-2 rounded-full bg-muted">
                   <div
-                    className={`h-full rounded-full transition-all ${barColor}`}
-                    style={{ width: `${Math.min(actual, 100)}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(actual, 100)}%`, backgroundColor: cat.color }}
                   />
                   <div
                     className="absolute top-0 h-full w-0.5 bg-foreground/40"

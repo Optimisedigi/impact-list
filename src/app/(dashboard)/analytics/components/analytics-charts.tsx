@@ -64,7 +64,7 @@ function StackedBarLabel(props: Record<string, unknown>) {
       textAnchor="middle"
       dominantBaseline="central"
     >
-      {value}
+      {value}%
     </text>
   );
 }
@@ -73,7 +73,7 @@ export function AllocationTrend({ data, targets }: { data: Record<string, unknow
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Weekly Time Allocation (12 weeks)</CardTitle>
+        <CardTitle className="text-base">Weekly Time Allocation ({data.length} weeks)</CardTitle>
       </CardHeader>
       <CardContent>
         {/* Category legend */}
@@ -241,18 +241,17 @@ export function LeverageTrendChart({ data }: { data: Record<string, unknown>[] }
   );
 }
 
-export function CompletionsByCategory({ data }: { data: Record<string, unknown>[] }) {
+export function CategoryPercentageChart({ data }: { data: Record<string, unknown>[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Completed Tasks by Category (12 weeks)</CardTitle>
+        <CardTitle className="text-base">Category Breakdown by Week ({data.length} weeks)</CardTitle>
       </CardHeader>
       <CardContent>
         {data.every((d) => Object.keys(d).length <= 2) ? (
-          <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+          <p className="text-sm text-muted-foreground">No time data yet.</p>
         ) : (
           <>
-            {/* Category legend */}
             <div className="flex flex-wrap items-center gap-4 mb-3">
               {Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => (
                 <div key={key} className="flex items-center gap-1.5">
@@ -267,32 +266,24 @@ export function CompletionsByCategory({ data }: { data: Record<string, unknown>[
                 <XAxis dataKey="week" tick={TICK_STYLE}>
                   <Label value="Week" position="bottom" offset={10} style={LABEL_STYLE} />
                 </XAxis>
-                <YAxis allowDecimals={false} tick={TICK_STYLE}>
-                  <Label value="Tasks Completed" angle={-90} position="insideLeft" offset={-5} style={{ ...LABEL_STYLE, textAnchor: "middle" }} />
+                <YAxis domain={[0, 100]} tick={TICK_STYLE} tickFormatter={(v) => `${v}%`}>
+                  <Label value="% of Time" angle={-90} position="insideLeft" offset={-5} style={{ ...LABEL_STYLE, textAnchor: "middle" }} />
                 </YAxis>
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
                     const row = payload[0]?.payload as Record<string, unknown>;
                     const wc = row?.weekCommencing as string | undefined;
-                    const total = payload.reduce((s, p) => s + ((p.value as number) || 0), 0);
                     return (
                       <div style={tooltipBox}>
                         <p style={{ fontWeight: 600 }}>{label}{wc ? ` (w/c ${wc})` : ""}</p>
-                        {total > 0 && (
-                          <div style={{ marginTop: 4 }}>
-                            {payload.filter((p) => (p.value as number) > 0).map((p) => {
-                              const pct = Math.round(((p.value as number) / total) * 100);
-                              return (
-                                <p key={p.dataKey as string} style={{ color: p.color as string }}>
-                                  {p.name}: {p.value as number} ({pct}%)
-                                </p>
-                              );
-                            })}
-                            <p style={{ color: "var(--color-muted-foreground)", borderTop: "1px solid var(--color-border)", paddingTop: 4, marginTop: 4 }}>Total: {total}</p>
-                          </div>
-                        )}
-                        {total === 0 && <p style={{ color: "var(--color-muted-foreground)", marginTop: 4 }}>No completions</p>}
+                        <div style={{ marginTop: 4 }}>
+                          {payload.filter((p) => (p.value as number) > 0).map((p) => (
+                            <p key={p.dataKey as string} style={{ color: p.color as string }}>
+                              {p.name}: {p.value as number}%
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     );
                   }}

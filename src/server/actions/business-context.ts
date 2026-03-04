@@ -9,6 +9,7 @@ export interface BusinessContextData {
   toolsUsed: string;
   teamSize: string;
   revenueModel: string;
+  startDate: string;
 }
 
 export async function getBusinessContext(): Promise<BusinessContextData | null> {
@@ -20,6 +21,7 @@ export async function getBusinessContext(): Promise<BusinessContextData | null> 
     toolsUsed: row.toolsUsed ?? "",
     teamSize: row.teamSize ?? "",
     revenueModel: row.revenueModel ?? "",
+    startDate: row.startDate ?? "",
   };
 }
 
@@ -33,6 +35,7 @@ export async function saveBusinessContext(data: BusinessContextData) {
         toolsUsed: data.toolsUsed,
         teamSize: data.teamSize,
         revenueModel: data.revenueModel,
+        startDate: data.startDate,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(businessContext.id, existing[0].id));
@@ -42,6 +45,7 @@ export async function saveBusinessContext(data: BusinessContextData) {
       toolsUsed: data.toolsUsed,
       teamSize: data.teamSize,
       revenueModel: data.revenueModel,
+      startDate: data.startDate,
     });
   }
 }

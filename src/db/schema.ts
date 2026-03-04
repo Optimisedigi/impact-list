@@ -22,6 +22,7 @@ export const tasks = sqliteTable("tasks", {
   completedAt: text("completed_at"),
   recurringTaskId: integer("recurring_task_id").references(() => recurringTasks.id),
   dismissedFromFocus: text("dismissed_from_focus"),
+  notes: text("notes"),
   sortOrder: integer("sort_order").default(0),
   createdAt: text("created_at")
     .notNull()
@@ -115,6 +116,7 @@ export const businessContext = sqliteTable("business_context", {
   toolsUsed: text("tools_used"),
   teamSize: text("team_size"),
   revenueModel: text("revenue_model"),
+  startDate: text("start_date"),
   updatedAt: text("updated_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

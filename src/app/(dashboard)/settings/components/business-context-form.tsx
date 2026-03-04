@@ -17,6 +17,7 @@ export function BusinessContextForm({ initial }: { initial: BusinessContextData 
     toolsUsed: initial?.toolsUsed ?? "",
     teamSize: initial?.teamSize ?? "",
     revenueModel: initial?.revenueModel ?? "",
+    startDate: initial?.startDate ?? "",
   });
 
   function handleSave() {
@@ -62,6 +63,16 @@ export function BusinessContextForm({ initial }: { initial: BusinessContextData 
           <p className="text-xs text-muted-foreground">
             Helps the AI understand effort involved in tasks like &quot;migrate to X&quot; or &quot;set up Y integration&quot;.
           </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="bc-start">Date business started</Label>
+          <Input
+            id="bc-start"
+            type="date"
+            value={form.startDate}
+            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

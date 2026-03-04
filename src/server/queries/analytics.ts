@@ -3,9 +3,9 @@ import { tasks, timeEntries } from "@/db/schema";
 import { eq, and, or, gte, lte, ne, desc, lt, inArray, sql, isNull } from "drizzle-orm";
 import { getWeekBounds, getMonthBounds } from "@/lib/time-utils";
 
-export type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month";
+export type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all_time";
 
-function getBounds(period: PeriodKey) {
+function getBounds(period: Exclude<PeriodKey, "all_time">) {
   switch (period) {
     case "this_week": return getWeekBounds(0);
     case "last_week": return getWeekBounds(-1);
@@ -15,6 +15,17 @@ function getBounds(period: PeriodKey) {
 }
 
 export async function getTimeAllocationByPeriod(period: PeriodKey) {
+  if (period === "all_time") {
+    return db
+      .select({
+        category: tasks.category,
+        totalHours: sql<number>`COALESCE(SUM(${timeEntries.hours}), 0)`,
+      })
+      .from(timeEntries)
+      .innerJoin(tasks, eq(timeEntries.taskId, tasks.id))
+      .groupBy(tasks.category);
+  }
+
   const { start, end } = getBounds(period);
   const startDate = start.split("T")[0];
   const endDate = end.split("T")[0];

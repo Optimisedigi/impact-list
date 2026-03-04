@@ -58,6 +58,7 @@ describe('business-context actions', () => {
           toolsUsed: 'Slack, Notion',
           teamSize: '5',
           revenueModel: 'SaaS',
+          startDate: '2026-01-06',
         },
       ])
 
@@ -68,6 +69,7 @@ describe('business-context actions', () => {
         toolsUsed: 'Slack, Notion',
         teamSize: '5',
         revenueModel: 'SaaS',
+        startDate: '2026-01-06',
       })
     })
 
@@ -79,6 +81,7 @@ describe('business-context actions', () => {
           toolsUsed: null,
           teamSize: null,
           revenueModel: null,
+          startDate: null,
         },
       ])
 
@@ -89,6 +92,7 @@ describe('business-context actions', () => {
         toolsUsed: '',
         teamSize: '',
         revenueModel: '',
+        startDate: '',
       })
     })
   })
@@ -101,6 +105,7 @@ describe('business-context actions', () => {
       toolsUsed: 'Figma, Linear',
       teamSize: '10',
       revenueModel: 'Retainer',
+      startDate: '2026-01-06',
     }
 
     it('updates existing row when one exists', async () => {
@@ -132,6 +137,7 @@ describe('business-context actions', () => {
         toolsUsed: 'Figma, Linear',
         teamSize: '10',
         revenueModel: 'Retainer',
+        startDate: '2026-01-06',
       })
     })
 

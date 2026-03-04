@@ -2,18 +2,49 @@ import { db } from "@/db";
 import { tasks, timeEntries } from "@/db/schema";
 import { eq, sql, desc, and, gte, lte } from "drizzle-orm";
 
-export async function getWeeklyAllocationTrend(weeks = 12) {
-  const results = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - i * 7);
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+/** Get the Monday of the week containing a given date */
+function getMondayOf(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
+/** Calculate weeks from a business start date to now */
+function getWeekRanges(businessStartDate?: string | null) {
+  const now = new Date();
+  const currentMonday = getMondayOf(now);
+
+  let firstMonday: Date;
+  if (businessStartDate) {
+    firstMonday = getMondayOf(new Date(businessStartDate + "T00:00:00"));
+  } else {
+    // Fallback: 12 weeks back
+    firstMonday = new Date(currentMonday);
+    firstMonday.setDate(firstMonday.getDate() - 11 * 7);
+  }
+
+  const ranges: { monday: Date; sunday: Date; weekNum: number }[] = [];
+  const m = new Date(firstMonday);
+  let weekNum = 1;
+  while (m <= currentMonday) {
+    const monday = new Date(m);
+    const sunday = new Date(m);
+    sunday.setDate(monday.getDate() + 6);
+    ranges.push({ monday, sunday, weekNum });
+    m.setDate(m.getDate() + 7);
+    weekNum++;
+  }
+  return ranges;
+}
+
+export async function getWeeklyAllocationTrend(weeks?: number, businessStartDate?: string | null) {
+  const ranges = businessStartDate ? getWeekRanges(businessStartDate) : getWeekRanges();
+  const sliced = weeks && !businessStartDate ? ranges.slice(-weeks) : ranges;
+  const results = [];
+
+  for (const { monday, sunday, weekNum } of sliced) {
     const startDate = monday.toISOString().split("T")[0];
     const endDate = sunday.toISOString().split("T")[0];
 
@@ -28,8 +59,7 @@ export async function getWeeklyAllocationTrend(weeks = 12) {
       .groupBy(tasks.category);
 
     const mondayStr = monday.toISOString().split("T")[0];
-    const shortDate = `${monday.getDate()}/${monday.getMonth() + 1}`;
-    const weekData: Record<string, unknown> = { week: shortDate, weekCommencing: mondayStr };
+    const weekData: Record<string, unknown> = { week: `W${weekNum}`, weekCommencing: mondayStr };
     for (const entry of entries) {
       weekData[entry.category] = entry.totalHours;
     }
@@ -83,60 +113,48 @@ export async function getPhaseBurndown(phaseId: number) {
   return burndown;
 }
 
-export async function getCompletionsByCategoryOverTime(weeks = 12) {
+export async function getCategoryPercentageOverTime(weeks?: number, businessStartDate?: string | null) {
+  const ranges = businessStartDate ? getWeekRanges(businessStartDate) : getWeekRanges();
+  const sliced = weeks && !businessStartDate ? ranges.slice(-weeks) : ranges;
   const results = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - i * 7);
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
 
+  for (const { monday, sunday, weekNum } of sliced) {
     const startDate = monday.toISOString().split("T")[0];
     const endDate = sunday.toISOString().split("T")[0];
 
     const entries = await db
       .select({
         category: tasks.category,
-        count: sql<number>`COUNT(*)`,
+        totalHours: sql<number>`COALESCE(SUM(${timeEntries.hours}), 0)`,
       })
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.status, "done"),
-          gte(sql`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`, startDate),
-          lte(sql`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`, endDate)
-        )
-      )
+      .from(timeEntries)
+      .innerJoin(tasks, eq(timeEntries.taskId, tasks.id))
+      .where(and(gte(timeEntries.date, startDate), lte(timeEntries.date, endDate)))
       .groupBy(tasks.category);
 
-    const weekNum = weeks - i;
+    const totalHours = entries.reduce((s, e) => s + e.totalHours, 0);
     const mondayStr = monday.toISOString().split("T")[0];
     const weekData: Record<string, unknown> = {
       week: `W${weekNum}`,
       weekCommencing: mondayStr,
     };
-    for (const entry of entries) {
-      weekData[entry.category] = entry.count;
+
+    if (totalHours > 0) {
+      for (const entry of entries) {
+        weekData[entry.category] = Math.round((entry.totalHours / totalHours) * 100);
+      }
     }
     results.push(weekData);
   }
   return results;
 }
 
-export async function getLeverageTrend(weeks = 12) {
+export async function getLeverageTrend(weeks?: number, businessStartDate?: string | null) {
+  const ranges = businessStartDate ? getWeekRanges(businessStartDate) : getWeekRanges();
+  const sliced = weeks && !businessStartDate ? ranges.slice(-weeks) : ranges;
   const results = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - i * 7);
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
 
+  for (const { monday, sunday, weekNum } of sliced) {
     const startDate = monday.toISOString();
     const endDate = sunday.toISOString();
 
@@ -154,8 +172,7 @@ export async function getLeverageTrend(weeks = 12) {
       );
 
     const mondayStr = monday.toISOString().split("T")[0];
-    const shortDate = `${monday.getDate()}/${monday.getMonth() + 1}`;
-    results.push({ week: shortDate, weekCommencing: mondayStr, avgLeverage: avg[0]?.avgLeverage ?? 0 });
+    results.push({ week: `W${weekNum}`, weekCommencing: mondayStr, avgLeverage: avg[0]?.avgLeverage ?? 0 });
   }
   return results;
 }

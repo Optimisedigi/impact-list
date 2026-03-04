@@ -2,16 +2,17 @@ import { db } from "@/db";
 import { categoryTargets } from "@/db/schema";
 import { getTimeAllocationByPeriod } from "@/server/queries/analytics";
 import { getActivePhase } from "@/server/queries/growth-phases";
+import { getBusinessContext } from "@/server/actions/business-context";
 import {
   getWeeklyAllocationTrend,
   getCompletionsByDay,
-  getCompletionsByCategoryOverTime,
+  getCategoryPercentageOverTime,
   getPhaseBurndown,
   getLeverageTrend,
 } from "@/server/queries/analytics-extended";
 import {
   AllocationTrend,
-  CompletionsByCategory,
+  CategoryPercentageChart,
   CategoryRadar,
   PhaseBurndown,
   LeverageTrendChart,
@@ -19,13 +20,16 @@ import {
 } from "./components/analytics-charts";
 
 export default async function AnalyticsPage() {
-  const [targets, weeklyTrend, completions, completionsByCategory, leverageTrend, monthAllocation, phase] =
+  const bizContext = await getBusinessContext();
+  const startDate = bizContext?.startDate || null;
+
+  const [targets, weeklyTrend, completions, categoryPct, leverageTrend, monthAllocation, phase] =
     await Promise.all([
       db.select().from(categoryTargets),
-      getWeeklyAllocationTrend(12),
+      getWeeklyAllocationTrend(undefined, startDate),
       getCompletionsByDay(365),
-      getCompletionsByCategoryOverTime(12),
-      getLeverageTrend(12),
+      getCategoryPercentageOverTime(undefined, startDate),
+      getLeverageTrend(undefined, startDate),
       getTimeAllocationByPeriod("this_month"),
       getActivePhase(),
     ]);
@@ -39,7 +43,7 @@ export default async function AnalyticsPage() {
         <p className="text-sm text-muted-foreground">Track your time allocation, completions, and leverage trends.</p>
       </div>
 
-      <CompletionsByCategory data={completionsByCategory} />
+      <CategoryPercentageChart data={categoryPct} />
 
       <AllocationTrend data={weeklyTrend} targets={targets} />
 
