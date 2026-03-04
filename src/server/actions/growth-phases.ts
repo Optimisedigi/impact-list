@@ -2,13 +2,14 @@
 
 import { db } from "@/db";
 import { growthPhases } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function createPhase(data: {
   name: string;
   description?: string;
   focusAreas?: string;
+  timeframe?: string;
 }) {
   const result = await db
     .insert(growthPhases)
@@ -16,6 +17,7 @@ export async function createPhase(data: {
       name: data.name,
       description: data.description || null,
       focusAreas: data.focusAreas || null,
+      timeframe: (data.timeframe as "90_day" | "180_day") || "90_day",
     })
     .returning();
   revalidatePath("/settings");
@@ -24,11 +26,14 @@ export async function createPhase(data: {
 
 export async function updatePhase(
   id: number,
-  data: { name?: string; description?: string; focusAreas?: string }
+  data: { name?: string; description?: string; focusAreas?: string; timeframe?: string }
 ) {
+  const { timeframe, ...rest } = data;
+  const updates: Record<string, unknown> = { ...rest };
+  if (timeframe) updates.timeframe = timeframe;
   const result = await db
     .update(growthPhases)
-    .set(data)
+    .set(updates)
     .where(eq(growthPhases.id, id))
     .returning();
   revalidatePath("/settings");
@@ -37,8 +42,16 @@ export async function updatePhase(
 }
 
 export async function setActivePhase(id: number) {
-  // Deactivate all phases
-  await db.update(growthPhases).set({ isActive: false });
+  // Get the phase to know its timeframe
+  const [phase] = await db.select().from(growthPhases).where(eq(growthPhases.id, id));
+  if (!phase) return;
+
+  // Deactivate only phases with the same timeframe (so you can have one active 90-day AND one active 180-day)
+  await db
+    .update(growthPhases)
+    .set({ isActive: false })
+    .where(eq(growthPhases.timeframe, phase.timeframe));
+
   // Activate the selected one
   await db
     .update(growthPhases)

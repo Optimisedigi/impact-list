@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { eq, like, and, desc, asc, type SQL } from "drizzle-orm";
+import { eq, like, and, desc, asc, inArray, ne, type SQL } from "drizzle-orm";
 
 export async function getAllTasks() {
   return db.select().from(tasks).orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
@@ -20,7 +20,15 @@ export async function getTasksByFilter(filters: {
   const conditions: SQL[] = [];
 
   if (filters.status) {
-    conditions.push(eq(tasks.status, filters.status as typeof tasks.status.enumValues[number]));
+    const statuses = filters.status.split(",");
+    if (statuses.length === 1) {
+      conditions.push(eq(tasks.status, statuses[0] as typeof tasks.status.enumValues[number]));
+    } else {
+      conditions.push(inArray(tasks.status, statuses as typeof tasks.status.enumValues[number][]));
+    }
+  } else {
+    // Default: exclude "done" tasks
+    conditions.push(ne(tasks.status, "done"));
   }
   if (filters.category) {
     conditions.push(eq(tasks.category, filters.category as typeof tasks.category.enumValues[number]));

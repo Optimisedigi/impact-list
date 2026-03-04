@@ -17,9 +17,15 @@ export async function updateTask(
   id: number,
   data: Partial<Omit<NewTask, "id" | "createdAt">>
 ) {
+  const updates = {
+    ...data,
+    updatedAt: new Date().toISOString(),
+    ...(data.status === "done" ? { completedAt: new Date().toISOString() } : {}),
+    ...(data.status && data.status !== "done" ? { completedAt: null } : {}),
+  };
   const result = await db
     .update(tasks)
-    .set({ ...data, updatedAt: new Date().toISOString() })
+    .set(updates)
     .where(eq(tasks.id, id))
     .returning();
   revalidatePath("/tasks");
@@ -32,9 +38,19 @@ export async function updateTaskField(
   field: string,
   value: string | number | null
 ) {
+  const updates: Record<string, unknown> = {
+    [field]: value,
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Auto-set completedAt when status changes
+  if (field === "status") {
+    updates.completedAt = value === "done" ? new Date().toISOString() : null;
+  }
+
   const result = await db
     .update(tasks)
-    .set({ [field]: value, updatedAt: new Date().toISOString() })
+    .set(updates)
     .where(eq(tasks.id, id))
     .returning();
   revalidatePath("/tasks");
@@ -50,6 +66,57 @@ export async function deleteTask(id: number) {
 export async function deleteTasks(ids: number[]) {
   if (ids.length === 0) return;
   await db.delete(tasks).where(inArray(tasks.id, ids));
+  revalidatePath("/tasks");
+  revalidatePath("/focus");
+}
+
+export async function duplicateTasks(ids: number[]) {
+  if (ids.length === 0) return [];
+  const originals = await db.select().from(tasks).where(inArray(tasks.id, ids));
+  const now = new Date().toISOString();
+  const newTasks = originals.map((t) => ({
+    title: t.title,
+    category: t.category,
+    status: t.status,
+    toComplete: t.toComplete,
+    client: t.client,
+    deadline: t.deadline,
+    estimatedHours: t.estimatedHours,
+    description: t.description,
+    priorityScore: null,
+    leverageScore: null,
+    sequenceReason: null,
+    actualHours: null,
+    completedAt: null,
+  }));
+  const result = await db.insert(tasks).values(newTasks).returning();
+  revalidatePath("/tasks");
+  revalidatePath("/focus");
+  return result;
+}
+
+export async function dismissFromFocus(id: number) {
+  await db
+    .update(tasks)
+    .set({ dismissedFromFocus: new Date().toISOString() })
+    .where(eq(tasks.id, id));
+  revalidatePath("/focus");
+}
+
+export async function bulkUpdateField(
+  ids: number[],
+  field: string,
+  value: string | number | null
+) {
+  if (ids.length === 0) return;
+  const updates: Record<string, unknown> = {
+    [field]: value,
+    updatedAt: new Date().toISOString(),
+  };
+  if (field === "status") {
+    updates.completedAt = value === "done" ? new Date().toISOString() : null;
+  }
+  await db.update(tasks).set(updates).where(inArray(tasks.id, ids));
   revalidatePath("/tasks");
   revalidatePath("/focus");
 }

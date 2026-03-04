@@ -51,7 +51,7 @@
   --radius: 0.625rem;
   --cat-client-delivery: oklch(0.55 0.15 90);
   --cat-systems-automation: oklch(0.45 0.18 160);
-  --cat-client-growth: oklch(0.48 0.18 145);
+  --cat-client-growth: oklch(0.48 0.18 250);
   --cat-team-management: oklch(0.5 0.18 310);
   --cat-admin: oklch(0.45 0.03 260);
   --background: oklch(0.98 0.005 265);
@@ -90,7 +90,7 @@
 .dark {
   --cat-client-delivery: oklch(0.7 0.15 90);
   --cat-systems-automation: oklch(0.55 0.2 160);
-  --cat-client-growth: oklch(0.6 0.2 145);
+  --cat-client-growth: oklch(0.6 0.2 250);
   --cat-team-management: oklch(0.65 0.2 310);
   --cat-admin: oklch(0.65 0.03 260);
   --background: oklch(0.13 0.03 265);
@@ -166,4 +166,13 @@
   .dark .glow-blue {
     box-shadow: 0 0 20px oklch(0.65 0.2 250 / 30%);
   }
+}
+
+@keyframes highlight-pulse {
+  0% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 80%); background-color: oklch(0.75 0.15 85 / 12%); }
+  100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
+}
+
+.animate-highlight-pulse {
+  animation: highlight-pulse 2s ease-out forwards;
 }

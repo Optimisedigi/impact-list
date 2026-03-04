@@ -4,7 +4,8 @@ import {
   getOverdueTasks,
   getThisWeekTasks,
 } from "@/server/queries/analytics";
-import { getActivePhase } from "@/server/queries/growth-phases";
+import { getActiveGoals } from "@/server/queries/growth-phases";
+import { generateRecurringTasks } from "@/server/actions/recurring-tasks";
 import { getAllTasks } from "@/server/queries/tasks";
 import { db } from "@/db";
 import { categoryTargets } from "@/db/schema";
@@ -22,13 +23,14 @@ async function fetchAllocation(period: PeriodKey) {
 }
 
 export default async function FocusPage() {
-  const [topTasks, overdueTasks, weekTasks, allocation, phase, allTasks, targets] =
+  await generateRecurringTasks({ skipRevalidate: true });
+  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, allTasks, targets] =
     await Promise.all([
       getTopTasksByLeverage(3),
       getOverdueTasks(),
       getThisWeekTasks(),
       getTimeAllocationByPeriod("this_week"),
-      getActivePhase(),
+      getActiveGoals(),
       getAllTasks(),
       db.select().from(categoryTargets),
     ]);
@@ -51,15 +53,15 @@ export default async function FocusPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <TimeAllocationTracker
-          initialData={allocation}
-          targets={targets}
-          fetchAllocation={fetchAllocation}
-        />
         <div className="space-y-4">
-          <PhaseProgressRing phase={phase} tasks={allTasks} />
-          <WeekQueue tasks={weekTasks} />
+          <PhaseProgressRing phase={goal90} tasks={allTasks} />
+          <TimeAllocationTracker
+            initialData={allocation}
+            targets={targets}
+            fetchAllocation={fetchAllocation}
+          />
         </div>
+        <WeekQueue tasks={weekTasks} />
       </div>
     </div>
   );

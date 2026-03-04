@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { tasks, timeEntries } from "@/db/schema";
-import { eq, and, gte, lte, ne, desc, lt, sql } from "drizzle-orm";
+import { eq, and, or, gte, lte, ne, desc, lt, inArray, sql, isNull } from "drizzle-orm";
 import { getWeekBounds, getMonthBounds } from "@/lib/time-utils";
 
 export type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month";
@@ -33,12 +33,39 @@ export async function getTimeAllocationByPeriod(period: PeriodKey) {
 }
 
 export async function getTopTasksByLeverage(limit = 3) {
-  return db
+  // 1. Tasks explicitly marked "today" get top priority
+  const todayTasks = await db
     .select()
     .from(tasks)
-    .where(ne(tasks.status, "done"))
+    .where(
+      and(
+        ne(tasks.status, "done"),
+        isNull(tasks.dismissedFromFocus),
+        eq(tasks.toComplete, "today")
+      )
+    )
     .orderBy(desc(tasks.leverageScore), desc(tasks.priorityScore))
     .limit(limit);
+
+  if (todayTasks.length >= limit) return todayTasks.slice(0, limit);
+
+  // 2. Fill remaining slots with highest leverage tasks (excluding already-picked)
+  const todayIds = todayTasks.map((t) => t.id);
+  const remaining = limit - todayTasks.length;
+  const leverageFill = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        ne(tasks.status, "done"),
+        isNull(tasks.dismissedFromFocus),
+        ...(todayIds.length > 0 ? [sql`${tasks.id} NOT IN (${sql.join(todayIds.map(id => sql`${id}`), sql`, `)})`] : [])
+      )
+    )
+    .orderBy(desc(tasks.leverageScore), desc(tasks.priorityScore))
+    .limit(remaining);
+
+  return [...todayTasks, ...leverageFill];
 }
 
 export async function getOverdueTasks() {
@@ -60,8 +87,13 @@ export async function getThisWeekTasks() {
     .where(
       and(
         ne(tasks.status, "done"),
-        lte(tasks.deadline, endDate),
-        gte(tasks.deadline, startDate)
+        isNull(tasks.dismissedFromFocus),
+        or(
+          // Tasks with deadlines this week
+          and(lte(tasks.deadline, endDate), gte(tasks.deadline, startDate)),
+          // Tasks the user marked for this week or sooner
+          inArray(tasks.toComplete, ["today", "this_week"])
+        )
       )
     )
     .orderBy(desc(tasks.leverageScore));

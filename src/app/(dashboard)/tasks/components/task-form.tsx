@@ -21,26 +21,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_OPTIONS, STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
+import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
+import type { CategoryOption } from "@/lib/constants";
 import { createTask } from "@/server/actions/tasks";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { SmartTaskInput } from "@/components/ui/voice-input-button";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  category: z.enum(["client_delivery", "systems_automation", "client_growth", "team_management", "admin"]),
+  category: z.string().min(1),
   status: z.enum(["not_started", "in_progress", "done"]),
   toComplete: z.string().optional(),
   client: z.string().optional(),
   deadline: z.string().optional(),
-  estimatedHours: z.number().optional(),
+  estimatedHours: z.string().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
 
-export function TaskForm({ clientOptions = [] }: { clientOptions?: string[] }) {
+export function TaskForm({ clientOptions = [], categoryOptions = [] }: { clientOptions?: string[]; categoryOptions?: CategoryOption[] }) {
   const [open, setOpen] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -52,6 +55,17 @@ export function TaskForm({ clientOptions = [] }: { clientOptions?: string[] }) {
     defaultValues: { status: "not_started", category: "client_delivery" },
   });
 
+  function handleVoiceResult(parsed: Record<string, unknown>) {
+    if (parsed.title) setValue("title", String(parsed.title));
+    if (parsed.category) setValue("category", parsed.category as TaskFormData["category"]);
+    if (parsed.status) setValue("status", parsed.status as TaskFormData["status"]);
+    if (parsed.client) setValue("client", String(parsed.client));
+    if (parsed.deadline) setValue("deadline", String(parsed.deadline));
+    if (parsed.estimatedHours) setValue("estimatedHours", String(parsed.estimatedHours));
+    if (parsed.toComplete) setValue("toComplete", String(parsed.toComplete));
+    setVoiceError(null);
+  }
+
   async function onSubmit(data: TaskFormData) {
     await createTask({
       title: data.title,
@@ -61,7 +75,7 @@ export function TaskForm({ clientOptions = [] }: { clientOptions?: string[] }) {
       toComplete: data.toComplete || null,
       client: data.client || null,
       deadline: data.deadline || null,
-      estimatedHours: data.estimatedHours ?? null,
+      estimatedHours: data.estimatedHours ? Number(data.estimatedHours) : null,
     });
     reset();
     setOpen(false);
@@ -79,6 +93,20 @@ export function TaskForm({ clientOptions = [] }: { clientOptions?: string[] }) {
         <DialogHeader>
           <DialogTitle>New Task</DialogTitle>
         </DialogHeader>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Quick add with AI</Label>
+          <SmartTaskInput
+            onResult={handleVoiceResult}
+            onError={setVoiceError}
+          />
+          {voiceError && (
+            <p className="text-xs text-destructive">{voiceError}</p>
+          )}
+        </div>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+          <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or fill in manually</span></div>
+        </div>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <Label htmlFor="title">Title</Label>
@@ -97,14 +125,14 @@ export function TaskForm({ clientOptions = [] }: { clientOptions?: string[] }) {
             <div>
               <Label>Category</Label>
               <Select
-                defaultValue="client_delivery"
-                onValueChange={(v) => setValue("category", v as TaskFormData["category"])}
+                defaultValue={categoryOptions[0]?.value ?? "client_delivery"}
+                onValueChange={(v) => setValue("category", v)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORY_OPTIONS.map((c) => (
+                  {categoryOptions.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       {c.label}
                     </SelectItem>

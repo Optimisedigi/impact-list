@@ -20,19 +20,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_OPTIONS, STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
+import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS, buildCategoryOptions } from "@/lib/constants";
+import type { CategoryOption } from "@/lib/constants";
+import { getAllCategories } from "@/server/actions/categories";
 import { createTask } from "@/server/actions/tasks";
 import { getAllClients } from "@/server/actions/clients";
 import { Plus } from "lucide-react";
+import { SmartTaskInput } from "@/components/ui/voice-input-button";
 
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  category: z.enum(["client_delivery", "systems_automation", "client_growth", "team_management", "admin"]),
+  category: z.string().min(1),
   status: z.enum(["not_started", "in_progress", "done"]),
   toComplete: z.string().optional(),
   client: z.string().optional(),
   deadline: z.string().optional(),
-  estimatedHours: z.number().optional(),
+  estimatedHours: z.string().optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
@@ -40,6 +43,8 @@ type TaskFormData = z.infer<typeof taskSchema>;
 export function FloatingAddTask() {
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
+  const [catOptions, setCatOptions] = useState<CategoryOption[]>([]);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -51,9 +56,21 @@ export function FloatingAddTask() {
     defaultValues: { status: "not_started", category: "client_delivery" },
   });
 
+  function handleVoiceResult(parsed: Record<string, unknown>) {
+    if (parsed.title) setValue("title", String(parsed.title));
+    if (parsed.category) setValue("category", parsed.category as TaskFormData["category"]);
+    if (parsed.status) setValue("status", parsed.status as TaskFormData["status"]);
+    if (parsed.client) setValue("client", String(parsed.client));
+    if (parsed.deadline) setValue("deadline", String(parsed.deadline));
+    if (parsed.estimatedHours) setValue("estimatedHours", String(parsed.estimatedHours));
+    if (parsed.toComplete) setValue("toComplete", String(parsed.toComplete));
+    setVoiceError(null);
+  }
+
   useEffect(() => {
     if (open) {
       getAllClients().then((c) => setClients(c.map((cl) => cl.name)));
+      getAllCategories().then((cats) => setCatOptions(buildCategoryOptions(cats)));
     }
   }, [open]);
 
@@ -65,7 +82,7 @@ export function FloatingAddTask() {
       toComplete: data.toComplete || null,
       client: data.client || null,
       deadline: data.deadline || null,
-      estimatedHours: data.estimatedHours ?? null,
+      estimatedHours: data.estimatedHours ? Number(data.estimatedHours) : null,
       description: null,
     });
     reset();
@@ -86,6 +103,20 @@ export function FloatingAddTask() {
           <DialogHeader>
             <DialogTitle>Quick Add Task</DialogTitle>
           </DialogHeader>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Quick add with AI</Label>
+            <SmartTaskInput
+              onResult={handleVoiceResult}
+              onError={setVoiceError}
+            />
+            {voiceError && (
+              <p className="text-xs text-destructive">{voiceError}</p>
+            )}
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">or fill in manually</span></div>
+          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <Label htmlFor="fab-title">Title</Label>
@@ -106,7 +137,7 @@ export function FloatingAddTask() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORY_OPTIONS.map((c) => (
+                    {catOptions.map((c) => (
                       <SelectItem key={c.value} value={c.value}>
                         {c.label}
                       </SelectItem>
@@ -192,6 +223,9 @@ export function FloatingAddTask() {
               </Button>
             </div>
           </form>
+          <p className="text-xs text-muted-foreground text-center mt-1">
+            For recurring tasks, <a href="/settings" className="underline hover:text-foreground">add in Settings</a>
+          </p>
         </DialogContent>
       </Dialog>
     </>

@@ -27,8 +27,9 @@ export async function getWeeklyAllocationTrend(weeks = 12) {
       .where(and(gte(timeEntries.date, startDate), lte(timeEntries.date, endDate)))
       .groupBy(tasks.category);
 
-    const weekLabel = `W${monday.toISOString().split("T")[0].slice(5)}`;
-    const weekData: Record<string, unknown> = { week: weekLabel };
+    const mondayStr = monday.toISOString().split("T")[0];
+    const shortDate = `${monday.getDate()}/${monday.getMonth() + 1}`;
+    const weekData: Record<string, unknown> = { week: shortDate, weekCommencing: mondayStr };
     for (const entry of entries) {
       weekData[entry.category] = entry.totalHours;
     }
@@ -44,12 +45,12 @@ export async function getCompletionsByDay(days = 365) {
 
   const completions = await db
     .select({
-      date: sql<string>`date(${tasks.updatedAt})`,
+      date: sql<string>`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`,
       count: sql<number>`COUNT(*)`,
     })
     .from(tasks)
-    .where(and(eq(tasks.status, "done"), gte(tasks.updatedAt, start)))
-    .groupBy(sql`date(${tasks.updatedAt})`);
+    .where(and(eq(tasks.status, "done"), gte(sql`COALESCE(${tasks.completedAt}, ${tasks.updatedAt})`, start)))
+    .groupBy(sql`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`);
 
   return completions.map((c) => ({ date: c.date, count: c.count }));
 }
@@ -64,8 +65,8 @@ export async function getPhaseBurndown(phaseId: number) {
   const doneByDate: Record<string, number> = {};
 
   for (const t of phaseTasks) {
-    if (t.status === "done" && t.updatedAt) {
-      const date = t.updatedAt.split("T")[0];
+    if (t.status === "done" && (t.completedAt || t.updatedAt)) {
+      const date = (t.completedAt || t.updatedAt).split("T")[0];
       doneByDate[date] = (doneByDate[date] || 0) + 1;
     }
   }
@@ -80,6 +81,49 @@ export async function getPhaseBurndown(phaseId: number) {
   }
 
   return burndown;
+}
+
+export async function getCompletionsByCategoryOverTime(weeks = 12) {
+  const results = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) - i * 7);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const startDate = monday.toISOString().split("T")[0];
+    const endDate = sunday.toISOString().split("T")[0];
+
+    const entries = await db
+      .select({
+        category: tasks.category,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.status, "done"),
+          gte(sql`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`, startDate),
+          lte(sql`date(COALESCE(${tasks.completedAt}, ${tasks.updatedAt}))`, endDate)
+        )
+      )
+      .groupBy(tasks.category);
+
+    const weekNum = weeks - i;
+    const mondayStr = monday.toISOString().split("T")[0];
+    const weekData: Record<string, unknown> = {
+      week: `W${weekNum}`,
+      weekCommencing: mondayStr,
+    };
+    for (const entry of entries) {
+      weekData[entry.category] = entry.count;
+    }
+    results.push(weekData);
+  }
+  return results;
 }
 
 export async function getLeverageTrend(weeks = 12) {
@@ -104,13 +148,14 @@ export async function getLeverageTrend(weeks = 12) {
       .where(
         and(
           eq(tasks.status, "done"),
-          gte(tasks.updatedAt, startDate),
-          lte(tasks.updatedAt, endDate)
+          gte(sql`COALESCE(${tasks.completedAt}, ${tasks.updatedAt})`, startDate),
+          lte(sql`COALESCE(${tasks.completedAt}, ${tasks.updatedAt})`, endDate)
         )
       );
 
-    const weekLabel = `W${monday.toISOString().split("T")[0].slice(5)}`;
-    results.push({ week: weekLabel, avgLeverage: avg[0]?.avgLeverage ?? 0 });
+    const mondayStr = monday.toISOString().split("T")[0];
+    const shortDate = `${monday.getDate()}/${monday.getMonth() + 1}`;
+    results.push({ week: shortDate, weekCommencing: mondayStr, avgLeverage: avg[0]?.avgLeverage ?? 0 });
   }
   return results;
 }

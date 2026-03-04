@@ -1,5 +1,8 @@
-import { Sidebar } from "@/components/layout/sidebar";
 import { FloatingAddTask } from "@/components/layout/floating-add-task";
+import { TaskTimerProvider } from "@/components/timer/task-timer-context";
+import { FloatingTimerWidget } from "@/components/timer/floating-timer-widget";
+import { SidebarProvider } from "@/components/layout/sidebar-context";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 export default function DashboardLayout({
   children,
@@ -7,10 +10,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
-      <Sidebar />
-      <main className="ml-56 min-h-screen p-6">{children}</main>
-      <FloatingAddTask />
-    </div>
+    <TaskTimerProvider>
+      <SidebarProvider>
+        <DashboardShell>{children}</DashboardShell>
+        <FloatingTimerWidget />
+        <FloatingAddTask />
+      </SidebarProvider>
+    </TaskTimerProvider>
   );
 }

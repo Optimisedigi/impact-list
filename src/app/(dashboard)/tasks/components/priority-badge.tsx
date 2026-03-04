@@ -1,15 +1,15 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { CATEGORIES, STATUS_COLORS } from "@/lib/constants";
-import type { CategoryKey } from "@/lib/constants";
+import { DEFAULT_CATEGORIES, STATUS_COLORS } from "@/lib/constants";
 
-export function CategoryBadge({ category }: { category: CategoryKey }) {
-  const cat = CATEGORIES[category];
+export function CategoryBadge({ category, categoryMap }: { category: string; categoryMap?: Record<string, { label: string; color: string }> }) {
+  const map = categoryMap ?? DEFAULT_CATEGORIES;
+  const cat = map[category] ?? { label: category, color: "oklch(0.5 0.03 260)" };
   return (
     <Badge
       variant="outline"
-      className="border-0 text-xs font-medium"
+      className="border-0 text-xs font-medium pointer-events-none"
       style={{ backgroundColor: `color-mix(in oklch, ${cat.color} 20%, transparent)`, color: cat.color }}
     >
       {cat.label}
@@ -24,7 +24,7 @@ export function StatusBadge({ status }: { status: string }) {
     done: "Done",
   };
   return (
-    <Badge variant="outline" className={`border-0 text-xs ${STATUS_COLORS[status] ?? ""}`}>
+    <Badge variant="outline" className={`border-0 text-xs pointer-events-none ${STATUS_COLORS[status] ?? ""}`}>
       {labels[status] ?? status}
     </Badge>
   );

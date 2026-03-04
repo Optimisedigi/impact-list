@@ -54,7 +54,7 @@ export function CsvImportDialog() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Upload className="mr-1 h-4 w-4" />
-          Import CSV
+          Import CSV of Tasks (Bulk Upload)
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-xl">

@@ -18,37 +18,102 @@ import {
   BarChart,
   Bar,
   ReferenceLine,
+  Label,
+  LabelList,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CATEGORIES } from "@/lib/constants";
+import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
-const chartTooltipStyle = {
-  contentStyle: {
-    backgroundColor: "hsl(240 10% 12%)",
-    border: "1px solid hsl(0 0% 100% / 0.1)",
-    borderRadius: "8px",
-    fontSize: "12px",
-  },
+// Theme-aware styles using CSS variables
+const TICK_STYLE = { fill: "var(--color-muted-foreground)", fontSize: 11 };
+const LABEL_STYLE: Record<string, string | number> = { fill: "var(--color-foreground)", fontSize: 12, fontWeight: 600 };
+const GRID_STROKE = "var(--color-border)";
+
+const tooltipBox: React.CSSProperties = {
+  backgroundColor: "var(--color-popover)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "8px",
+  padding: "10px",
+  fontSize: "12px",
+  color: "var(--color-foreground)",
 };
 
-export function AllocationTrend({ data, targets }: { data: Record<string, unknown>[]; targets: CategoryTarget[] }) {
-  const targetMap = Object.fromEntries(targets.map((t) => [t.category, t.targetPercentage]));
+const chartTooltipStyle = {
+  contentStyle: tooltipBox,
+};
 
+// Custom label renderer for stacked bar segments - only show if segment is tall enough
+function StackedBarLabel(props: Record<string, unknown>) {
+  const { x, y, width, height, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    value: number;
+  };
+  if (!value || value === 0 || height < 18) return null;
+  return (
+    <text
+      x={x + width / 2}
+      y={y + height / 2}
+      fill="white"
+      fontSize={10}
+      fontWeight={600}
+      textAnchor="middle"
+      dominantBaseline="central"
+    >
+      {value}
+    </text>
+  );
+}
+
+export function AllocationTrend({ data, targets }: { data: Record<string, unknown>[]; targets: CategoryTarget[] }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Weekly Time Allocation (12 weeks)</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Category legend */}
+        <div className="flex flex-wrap items-center gap-4 mb-3">
+          {Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => (
+            <div key={key} className="flex items-center gap-1.5">
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color, opacity: 0.8 }} />
+              <span className="text-xs text-muted-foreground">{cat.label}</span>
+            </div>
+          ))}
+        </div>
         <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 100% / 0.05)" />
-            <XAxis dataKey="week" tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
-            <YAxis tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
-            <Tooltip {...chartTooltipStyle} />
-            {Object.entries(CATEGORIES).map(([key, cat]) => (
+          <AreaChart data={data} margin={{ bottom: 30, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+            <XAxis dataKey="week" tick={TICK_STYLE}>
+              <Label value="Week" position="bottom" offset={10} style={LABEL_STYLE} />
+            </XAxis>
+            <YAxis tick={TICK_STYLE}>
+              <Label value="Hours" angle={-90} position="insideLeft" offset={-5} style={{ ...LABEL_STYLE, textAnchor: "middle" }} />
+            </YAxis>
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const row = payload[0]?.payload as Record<string, unknown>;
+                const wc = row?.weekCommencing as string | undefined;
+                return (
+                  <div style={tooltipBox}>
+                    <p style={{ fontWeight: 600 }}>{label}{wc ? ` (w/c ${wc})` : ""}</p>
+                    <div style={{ marginTop: 4 }}>
+                      {payload.filter((p) => (p.value as number) > 0).map((p) => (
+                        <p key={p.dataKey as string} style={{ color: p.color as string }}>
+                          {DEFAULT_CATEGORIES[p.dataKey as CategoryKey]?.label ?? p.dataKey}: {p.value as number}h
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            {Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => (
               <Area
                 key={key}
                 type="monotone"
@@ -73,7 +138,7 @@ export function CategoryRadar({ allocation, targets }: {
   const totalHours = allocation.reduce((s, a) => s + a.totalHours, 0) || 1;
   const targetMap = Object.fromEntries(targets.map((t) => [t.category, t.targetPercentage]));
 
-  const data = Object.entries(CATEGORIES).map(([key, cat]) => {
+  const data = Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => {
     const entry = allocation.find((a) => a.category === key);
     const actual = entry ? (entry.totalHours / totalHours) * 100 : 0;
     return {
@@ -91,11 +156,11 @@ export function CategoryRadar({ allocation, targets }: {
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
           <RadarChart data={data}>
-            <PolarGrid stroke="hsl(0 0% 100% / 0.1)" />
-            <PolarAngleAxis dataKey="category" tick={{ fill: "hsl(0 0% 100% / 0.6)", fontSize: 11 }} />
-            <PolarRadiusAxis tick={{ fill: "hsl(0 0% 100% / 0.3)", fontSize: 10 }} />
+            <PolarGrid stroke="var(--color-border)" />
+            <PolarAngleAxis dataKey="category" tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }} />
+            <PolarRadiusAxis tick={{ fill: "var(--color-muted-foreground)", fontSize: 10 }} />
             <Radar name="Actual" dataKey="actual" stroke="hsl(240 80% 65%)" fill="hsl(240 80% 65%)" fillOpacity={0.3} />
-            <Radar name="Target" dataKey="target" stroke="hsl(0 0% 100% / 0.3)" fill="none" strokeDasharray="5 5" />
+            <Radar name="Target" dataKey="target" stroke="var(--color-muted-foreground)" fill="none" strokeDasharray="5 5" />
             <Tooltip {...chartTooltipStyle} />
           </RadarChart>
         </ResponsiveContainer>
@@ -126,9 +191,9 @@ export function PhaseBurndown({ data }: { data: { date: string; remaining: numbe
       <CardContent>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 100% / 0.05)" />
-            <XAxis dataKey="date" tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
-            <YAxis tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+            <XAxis dataKey="date" tick={TICK_STYLE} />
+            <YAxis tick={TICK_STYLE} />
             <Tooltip {...chartTooltipStyle} />
             <Line type="monotone" dataKey="remaining" stroke="hsl(240 80% 65%)" strokeWidth={2} dot={false} />
           </LineChart>
@@ -138,7 +203,7 @@ export function PhaseBurndown({ data }: { data: { date: string; remaining: numbe
   );
 }
 
-export function LeverageTrendChart({ data }: { data: { week: string; avgLeverage: number }[] }) {
+export function LeverageTrendChart({ data }: { data: Record<string, unknown>[] }) {
   return (
     <Card>
       <CardHeader>
@@ -146,11 +211,28 @@ export function LeverageTrendChart({ data }: { data: { week: string; avgLeverage
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 100% / 0.05)" />
-            <XAxis dataKey="week" tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
-            <YAxis domain={[0, 10]} tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
-            <Tooltip {...chartTooltipStyle} />
+          <LineChart data={data} margin={{ bottom: 30, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+            <XAxis dataKey="week" tick={TICK_STYLE}>
+              <Label value="Week" position="bottom" offset={10} style={LABEL_STYLE} />
+            </XAxis>
+            <YAxis domain={[0, 10]} tick={TICK_STYLE}>
+              <Label value="Avg Leverage" angle={-90} position="insideLeft" offset={-5} style={{ ...LABEL_STYLE, textAnchor: "middle" }} />
+            </YAxis>
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const row = payload[0]?.payload as Record<string, unknown>;
+                const wc = row?.weekCommencing as string | undefined;
+                const val = payload[0]?.value as number;
+                return (
+                  <div style={tooltipBox}>
+                    <p style={{ fontWeight: 600 }}>{label}{wc ? ` (w/c ${wc})` : ""}</p>
+                    <p style={{ marginTop: 4, color: "hsl(50 100% 60%)" }}>Avg Leverage: {typeof val === "number" ? val.toFixed(1) : "—"}</p>
+                  </div>
+                );
+              }}
+            />
             <Line type="monotone" dataKey="avgLeverage" stroke="hsl(50 100% 60%)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -159,8 +241,85 @@ export function LeverageTrendChart({ data }: { data: { week: string; avgLeverage
   );
 }
 
+export function CompletionsByCategory({ data }: { data: Record<string, unknown>[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Completed Tasks by Category (12 weeks)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {data.every((d) => Object.keys(d).length <= 2) ? (
+          <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+        ) : (
+          <>
+            {/* Category legend */}
+            <div className="flex flex-wrap items-center gap-4 mb-3">
+              {Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => (
+                <div key={key} className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cat.color, opacity: 0.8 }} />
+                  <span className="text-xs text-muted-foreground">{cat.label}</span>
+                </div>
+              ))}
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data} margin={{ bottom: 30, left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+                <XAxis dataKey="week" tick={TICK_STYLE}>
+                  <Label value="Week" position="bottom" offset={10} style={LABEL_STYLE} />
+                </XAxis>
+                <YAxis allowDecimals={false} tick={TICK_STYLE}>
+                  <Label value="Tasks Completed" angle={-90} position="insideLeft" offset={-5} style={{ ...LABEL_STYLE, textAnchor: "middle" }} />
+                </YAxis>
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null;
+                    const row = payload[0]?.payload as Record<string, unknown>;
+                    const wc = row?.weekCommencing as string | undefined;
+                    const total = payload.reduce((s, p) => s + ((p.value as number) || 0), 0);
+                    return (
+                      <div style={tooltipBox}>
+                        <p style={{ fontWeight: 600 }}>{label}{wc ? ` (w/c ${wc})` : ""}</p>
+                        {total > 0 && (
+                          <div style={{ marginTop: 4 }}>
+                            {payload.filter((p) => (p.value as number) > 0).map((p) => {
+                              const pct = Math.round(((p.value as number) / total) * 100);
+                              return (
+                                <p key={p.dataKey as string} style={{ color: p.color as string }}>
+                                  {p.name}: {p.value as number} ({pct}%)
+                                </p>
+                              );
+                            })}
+                            <p style={{ color: "var(--color-muted-foreground)", borderTop: "1px solid var(--color-border)", paddingTop: 4, marginTop: 4 }}>Total: {total}</p>
+                          </div>
+                        )}
+                        {total === 0 && <p style={{ color: "var(--color-muted-foreground)", marginTop: 4 }}>No completions</p>}
+                      </div>
+                    );
+                  }}
+                />
+                {Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => (
+                  <Bar
+                    key={key}
+                    dataKey={key}
+                    stackId="1"
+                    fill={cat.color}
+                    name={cat.label}
+                    radius={[0, 0, 0, 0]}
+                  >
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <LabelList dataKey={key} content={StackedBarLabel as any} />
+                  </Bar>
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CompletionHeatmap({ data }: { data: { date: string; count: number }[] }) {
-  // Simple bar chart as a lightweight alternative to calendar heatmap
   const last30 = data.slice(-30);
   return (
     <Card>
@@ -173,9 +332,9 @@ export function CompletionHeatmap({ data }: { data: { date: string; count: numbe
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={last30}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 100% / 0.05)" />
-              <XAxis dataKey="date" tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 10 }} />
-              <YAxis allowDecimals={false} tick={{ fill: "hsl(0 0% 100% / 0.4)", fontSize: 11 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+              <XAxis dataKey="date" tick={TICK_STYLE} />
+              <YAxis allowDecimals={false} tick={TICK_STYLE} />
               <Tooltip {...chartTooltipStyle} />
               <Bar dataKey="count" fill="hsl(150 60% 50%)" radius={[2, 2, 0, 0]} />
             </BarChart>

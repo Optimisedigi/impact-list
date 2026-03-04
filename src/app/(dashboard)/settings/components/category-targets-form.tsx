@@ -5,16 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { CATEGORIES } from "@/lib/constants";
-import type { CategoryKey } from "@/lib/constants";
+import type { CategoryOption } from "@/lib/constants";
 import { upsertCategoryTargets } from "@/server/actions/category-targets";
 import type { CategoryTarget } from "@/types";
 
-export function CategoryTargetsForm({ targets }: { targets: CategoryTarget[] }) {
+export function CategoryTargetsForm({ targets, categoryOptions }: { targets: CategoryTarget[]; categoryOptions: CategoryOption[] }) {
   const targetMap = Object.fromEntries(targets.map((t) => [t.category, t.targetPercentage]));
   const [values, setValues] = useState<Record<string, number>>(
     Object.fromEntries(
-      Object.keys(CATEGORIES).map((k) => [k, targetMap[k] ?? 0])
+      categoryOptions.map((c) => [c.value, targetMap[c.value] ?? 0])
     )
   );
   const [isPending, startTransition] = useTransition();
@@ -44,8 +43,8 @@ export function CategoryTargetsForm({ targets }: { targets: CategoryTarget[] }) 
         <CardTitle>Category Time Targets</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {Object.entries(CATEGORIES).map(([key, cat]) => (
-          <div key={key} className="flex items-center gap-3">
+        {categoryOptions.map((cat) => (
+          <div key={cat.value} className="flex items-center gap-3">
             <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
             <Label className="w-32 shrink-0">{cat.label}</Label>
             <Input
@@ -53,9 +52,9 @@ export function CategoryTargetsForm({ targets }: { targets: CategoryTarget[] }) 
               min={0}
               max={100}
               className="w-20"
-              value={values[key]}
+              value={values[cat.value] ?? 0}
               onChange={(e) =>
-                setValues((prev) => ({ ...prev, [key]: Number(e.target.value) }))
+                setValues((prev) => ({ ...prev, [cat.value]: Number(e.target.value) }))
               }
             />
             <span className="text-sm text-muted-foreground">%</span>
@@ -70,12 +69,12 @@ export function CategoryTargetsForm({ targets }: { targets: CategoryTarget[] }) 
             )}
           </div>
           <div className="h-2 flex-1 mx-4 rounded-full bg-muted overflow-hidden flex">
-            {Object.entries(CATEGORIES).map(([key, cat]) => (
+            {categoryOptions.map((cat) => (
               <div
-                key={key}
+                key={cat.value}
                 className="h-full transition-all"
                 style={{
-                  width: `${values[key]}%`,
+                  width: `${values[cat.value] ?? 0}%`,
                   backgroundColor: cat.color,
                 }}
               />

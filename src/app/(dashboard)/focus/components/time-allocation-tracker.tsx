@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CATEGORIES } from "@/lib/constants";
+import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
@@ -56,7 +56,7 @@ export function TimeAllocationTracker({
         {totalHours === 0 ? (
           <p className="text-sm text-muted-foreground">No time logged for this period.</p>
         ) : (
-          Object.entries(CATEGORIES).map(([key, cat]) => {
+          Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => {
             const entry = data.find((d) => d.category === key);
             const hours = entry?.totalHours ?? 0;
             const actual = totalHours > 0 ? (hours / totalHours) * 100 : 0;

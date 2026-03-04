@@ -5,11 +5,13 @@ import { getActivePhase } from "@/server/queries/growth-phases";
 import {
   getWeeklyAllocationTrend,
   getCompletionsByDay,
+  getCompletionsByCategoryOverTime,
   getPhaseBurndown,
   getLeverageTrend,
 } from "@/server/queries/analytics-extended";
 import {
   AllocationTrend,
+  CompletionsByCategory,
   CategoryRadar,
   PhaseBurndown,
   LeverageTrendChart,
@@ -17,11 +19,12 @@ import {
 } from "./components/analytics-charts";
 
 export default async function AnalyticsPage() {
-  const [targets, weeklyTrend, completions, leverageTrend, monthAllocation, phase] =
+  const [targets, weeklyTrend, completions, completionsByCategory, leverageTrend, monthAllocation, phase] =
     await Promise.all([
       db.select().from(categoryTargets),
       getWeeklyAllocationTrend(12),
       getCompletionsByDay(365),
+      getCompletionsByCategoryOverTime(12),
       getLeverageTrend(12),
       getTimeAllocationByPeriod("this_month"),
       getActivePhase(),
@@ -35,6 +38,8 @@ export default async function AnalyticsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
         <p className="text-sm text-muted-foreground">Track your time allocation, completions, and leverage trends.</p>
       </div>
+
+      <CompletionsByCategory data={completionsByCategory} />
 
       <AllocationTrend data={weeklyTrend} targets={targets} />
 
