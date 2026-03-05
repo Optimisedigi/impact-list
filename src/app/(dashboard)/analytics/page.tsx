@@ -9,6 +9,7 @@ import {
   getCategoryPercentageOverTime,
   getPhaseBurndown,
   getLeverageTrend,
+  getRecentlyCompletedTasks,
 } from "@/server/queries/analytics-extended";
 import {
   AllocationTrend,
@@ -17,13 +18,14 @@ import {
   PhaseBurndown,
   LeverageTrendChart,
   CompletionHeatmap,
+  CompletedTasksList,
 } from "./components/analytics-charts";
 
 export default async function AnalyticsPage() {
   const bizContext = await getBusinessContext();
   const startDate = bizContext?.startDate || null;
 
-  const [targets, weeklyTrend, completions, categoryPct, leverageTrend, monthAllocation, phase] =
+  const [targets, weeklyTrend, completions, categoryPct, leverageTrend, monthAllocation, phase, completedTasks] =
     await Promise.all([
       db.select().from(categoryTargets),
       getWeeklyAllocationTrend(undefined, startDate),
@@ -32,6 +34,7 @@ export default async function AnalyticsPage() {
       getLeverageTrend(undefined, startDate),
       getTimeAllocationByPeriod("this_month"),
       getActivePhase(),
+      getRecentlyCompletedTasks(),
     ]);
 
   const burndown = phase ? await getPhaseBurndown(phase.id) : [];
@@ -56,6 +59,8 @@ export default async function AnalyticsPage() {
         <CompletionHeatmap data={completions} />
         <LeverageTrendChart data={leverageTrend} />
       </div>
+
+      <CompletedTasksList data={completedTasks} />
     </div>
   );
 }

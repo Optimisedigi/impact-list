@@ -26,7 +26,8 @@ import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
 import type { Task } from "@/types";
 import { daysLeft, formatDateShort } from "@/lib/time-utils";
-import { MoreHorizontal, Trash2, Clock, Play, Square, Copy, Repeat } from "lucide-react";
+import { MoreHorizontal, Trash2, Clock, Play, Square, Copy, Repeat, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import type { CopiedCell } from "./task-table";
 
@@ -208,7 +209,7 @@ export function TaskRow({
   return (
     <TableRow
       data-task-id={task.id}
-      className={`${isPending ? "opacity-60" : ""} ${overdue ? "bg-red-500/5" : ""} ${selected ? "bg-primary/5" : ""} ${isHighlighted ? "animate-highlight-pulse" : ""} [&>td]:align-middle`}
+      className={`group/row ${isPending ? "opacity-60" : ""} ${overdue ? "bg-red-500/5" : ""} ${selected ? "bg-primary/5" : ""} ${isHighlighted ? "animate-highlight-pulse" : ""} [&>td]:align-middle`}
     >
       <TableCell className="w-10">
         <div
@@ -229,6 +230,13 @@ export function TaskRow({
             value={optimisticTask.title}
             onSave={(v) => saveField("title", v)}
           />
+          <Link
+            href={`/tasks/${task.id}`}
+            className="shrink-0 opacity-0 group-hover/row:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+            title="Open task details"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
           {optimisticTask.recurringTaskId && (
             <span title="Recurring task"><Repeat className="h-3 w-3 shrink-0 text-muted-foreground" /></span>
           )}

@@ -149,6 +149,29 @@ export async function getCategoryPercentageOverTime(weeks?: number, businessStar
   return results;
 }
 
+export async function getRecentlyCompletedTasks(limit = 50) {
+  const rows = await db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      category: tasks.category,
+      client: tasks.client,
+      estimatedHours: tasks.estimatedHours,
+      actualHours: tasks.actualHours,
+      completedAt: tasks.completedAt,
+      updatedAt: tasks.updatedAt,
+    })
+    .from(tasks)
+    .where(eq(tasks.status, "done"))
+    .orderBy(desc(sql`COALESCE(${tasks.completedAt}, ${tasks.updatedAt})`))
+    .limit(limit);
+
+  return rows.map((r) => ({
+    ...r,
+    completedDate: (r.completedAt || r.updatedAt).split("T")[0],
+  }));
+}
+
 export async function getLeverageTrend(weeks?: number, businessStartDate?: string | null) {
   const ranges = businessStartDate ? getWeekRanges(businessStartDate) : getWeekRanges();
   const sliced = weeks && !businessStartDate ? ranges.slice(-weeks) : ranges;

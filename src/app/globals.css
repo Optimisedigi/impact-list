@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -175,4 +176,33 @@
 
 .animate-highlight-pulse {
   animation: highlight-pulse 2s ease-out forwards;
+}
+
+/* TipTap editor styles */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tiptap ul[data-type="taskList"] li label {
+  margin-top: 0.15rem;
+}
+
+.tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
 }

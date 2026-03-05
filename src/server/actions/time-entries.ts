@@ -23,6 +23,7 @@ export async function createTimeEntry(data: {
     .where(eq(tasks.id, data.taskId));
 
   revalidatePath("/tasks");
+  revalidatePath(`/tasks/${data.taskId}`);
   revalidatePath("/focus");
   return result[0];
 }
