@@ -29,7 +29,18 @@ export async function updateTask(
     .where(eq(tasks.id, id))
     .returning();
   revalidatePath("/tasks");
+  revalidatePath(`/tasks/${id}`);
   revalidatePath("/focus");
+  return result[0];
+}
+
+export async function updateTaskNotes(id: number, notes: string) {
+  const result = await db
+    .update(tasks)
+    .set({ notes, updatedAt: new Date().toISOString() })
+    .where(eq(tasks.id, id))
+    .returning();
+  revalidatePath(`/tasks/${id}`);
   return result[0];
 }
 
@@ -54,6 +65,8 @@ export async function updateTaskField(
     .where(eq(tasks.id, id))
     .returning();
   revalidatePath("/tasks");
+  revalidatePath(`/tasks/${id}`);
+  revalidatePath("/analytics");
   return result[0];
 }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useRef, useTransition } from "react";
+import { updateTaskField } from "@/server/actions/tasks";
 import {
   AreaChart,
   Area,
@@ -303,6 +305,163 @@ export function CategoryPercentageChart({ data }: { data: Record<string, unknown
                 ))}
               </BarChart>
             </ResponsiveContainer>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditableHours({ taskId, value }: { taskId: number; value: number | null }) {
+  const [editing, setEditing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleSave() {
+    const raw = inputRef.current?.value.trim() ?? "";
+    const num = raw === "" ? null : parseFloat(raw);
+    if (num !== null && (isNaN(num) || num < 0)) return;
+    if (num === value) {
+      setEditing(false);
+      return;
+    }
+    startTransition(async () => {
+      await updateTaskField(taskId, "actualHours", num);
+      setEditing(false);
+    });
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        step="0.25"
+        min="0"
+        defaultValue={value ?? ""}
+        autoFocus
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+        disabled={isPending}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="cursor-pointer rounded px-1.5 py-0.5 text-right tabular-nums hover:bg-muted transition-colors"
+      title="Click to edit hours"
+    >
+      {value != null && value > 0 ? `${value}h` : "-"}
+    </button>
+  );
+}
+
+export function CompletedTasksList({
+  data,
+}: {
+  data: {
+    id: number;
+    title: string;
+    category: string;
+    client: string | null;
+    estimatedHours: number | null;
+    actualHours: number | null;
+    completedDate: string;
+  }[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? data : data.slice(0, 5);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Recently Completed Tasks</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No completed tasks yet.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">Task</th>
+                    <th className="pb-2 pr-4 font-medium">Category</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Est.</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Actual</th>
+                    <th className="pb-2 pr-4 font-medium text-right">Diff</th>
+                    <th className="pb-2 font-medium">Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((task) => {
+                    const diff =
+                      task.estimatedHours != null && task.actualHours != null
+                        ? task.actualHours - task.estimatedHours
+                        : null;
+                    const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
+                    return (
+                      <tr key={task.id} className="border-b border-border/50 last:border-0">
+                        <td className="py-2 pr-4">
+                          <div className="font-medium">{task.title}</div>
+                          {task.client && (
+                            <div className="text-xs text-muted-foreground">{task.client}</div>
+                          )}
+                        </td>
+                        <td className="py-2 pr-4">
+                          <span
+                            className="inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                            style={{ backgroundColor: cat?.color ?? "var(--color-muted)" }}
+                          >
+                            {cat?.label ?? task.category}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">
+                          {task.estimatedHours != null ? `${task.estimatedHours}h` : "-"}
+                        </td>
+                        <td className="py-2 pr-4 text-right">
+                          <EditableHours taskId={task.id} value={task.actualHours} />
+                        </td>
+                        <td className="py-2 pr-4 text-right tabular-nums">
+                          {diff != null ? (
+                            <span
+                              className={
+                                diff > 0
+                                  ? "text-red-400"
+                                  : diff < 0
+                                    ? "text-green-400"
+                                    : "text-muted-foreground"
+                              }
+                            >
+                              {diff > 0 ? "+" : ""}
+                              {diff.toFixed(1)}h
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="py-2 text-muted-foreground">{task.completedDate}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {data.length > 5 && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {expanded ? "Show less" : `Show all ${data.length} completed tasks`}
+              </button>
+            )}
           </>
         )}
       </CardContent>
