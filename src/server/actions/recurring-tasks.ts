@@ -2,8 +2,9 @@
 
 import { db } from "@/db";
 import { recurringTasks, tasks } from "@/db/schema";
-import { eq, and, lte, isNull, or } from "drizzle-orm";
+import { eq, and, lte, gte, ne, isNull, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getWeekBounds } from "@/lib/time-utils";
 
 export async function getAllRecurringTasks() {
   return db.select().from(recurringTasks).orderBy(recurringTasks.title);
@@ -56,9 +57,18 @@ export async function deleteRecurringTask(id: number) {
   revalidatePath("/settings");
 }
 
+function getToComplete(frequency: string, deadlineStr: string): "this_week" | null {
+  // Weekly tasks always show in focus
+  if (frequency === "weekly") return "this_week";
+  // Fortnightly/monthly only show when their deadline falls in the current week
+  const { start, end } = getWeekBounds(0);
+  const startDate = start.split("T")[0];
+  const endDate = end.split("T")[0];
+  return deadlineStr >= startDate && deadlineStr <= endDate ? "this_week" : null;
+}
+
 export async function generateRecurringTasks({ skipRevalidate = false }: { skipRevalidate?: boolean } = {}) {
   const now = new Date();
-  const today = now.toISOString().split("T")[0];
 
   const active = await db
     .select()
@@ -112,6 +122,7 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
           break;
       }
 
+      const deadlineStr = deadline.toISOString().split("T")[0];
       await db.insert(tasks).values({
         title: rt.title,
         description: rt.description,
@@ -119,8 +130,8 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
         status: "not_started",
         client: rt.client,
         estimatedHours: rt.estimatedHours,
-        deadline: deadline.toISOString().split("T")[0],
-        toComplete: rt.frequency === "weekly" ? "this_week" : null,
+        deadline: deadlineStr,
+        toComplete: getToComplete(rt.frequency, deadlineStr),
         recurringTaskId: rt.id,
       });
 
@@ -133,9 +144,79 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
     }
   }
 
+  // Promote recurring tasks whose deadline is now within the current week
+  const { start, end } = getWeekBounds(0);
+  const weekStart = start.split("T")[0];
+  const weekEnd = end.split("T")[0];
+  await db
+    .update(tasks)
+    .set({ toComplete: "this_week" })
+    .where(
+      and(
+        isNotNull(tasks.recurringTaskId),
+        ne(tasks.status, "done"),
+        isNull(tasks.dismissedFromFocus),
+        isNull(tasks.toComplete),
+        gte(tasks.deadline, weekStart),
+        lte(tasks.deadline, weekEnd)
+      )
+    );
+
   if (!skipRevalidate) {
     revalidatePath("/tasks");
     revalidatePath("/focus");
   }
   return { created };
+}
+
+/**
+ * Immediately generate the next instance of a recurring task
+ * (called when a recurring task instance is marked done).
+ */
+export async function regenerateRecurringTask(recurringTaskId: number) {
+  const [rt] = await db
+    .select()
+    .from(recurringTasks)
+    .where(and(eq(recurringTasks.id, recurringTaskId), eq(recurringTasks.isActive, true)));
+
+  if (!rt) return;
+
+  const now = new Date();
+  const deadline = new Date(now);
+
+  switch (rt.frequency) {
+    case "weekly":
+      deadline.setDate(deadline.getDate() + 7);
+      break;
+    case "fortnightly":
+      deadline.setDate(deadline.getDate() + 14);
+      break;
+    case "monthly":
+      if (rt.dayOfMonth) {
+        deadline.setMonth(deadline.getMonth() + 1);
+        const lastDay = new Date(deadline.getFullYear(), deadline.getMonth() + 1, 0).getDate();
+        deadline.setDate(Math.min(rt.dayOfMonth, lastDay));
+      } else {
+        deadline.setMonth(deadline.getMonth() + 1);
+      }
+      break;
+  }
+
+  const deadlineStr = deadline.toISOString().split("T")[0];
+  await db.insert(tasks).values({
+    title: rt.title,
+    description: rt.description,
+    category: rt.category,
+    status: "not_started",
+    client: rt.client,
+    estimatedHours: rt.estimatedHours,
+    deadline: deadlineStr,
+    toComplete: getToComplete(rt.frequency, deadlineStr),
+    recurringTaskId: rt.id,
+  });
+
+  await db
+    .update(recurringTasks)
+    .set({ lastGeneratedAt: now.toISOString() })
+    .where(eq(recurringTasks.id, rt.id));
 }

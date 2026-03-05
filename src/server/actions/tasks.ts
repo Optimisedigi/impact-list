@@ -64,9 +64,17 @@ export async function updateTaskField(
     .set(updates)
     .where(eq(tasks.id, id))
     .returning();
+
+  // When a recurring task is marked done, generate the next instance immediately
+  if (field === "status" && value === "done" && result[0]?.recurringTaskId) {
+    const { regenerateRecurringTask } = await import("./recurring-tasks");
+    await regenerateRecurringTask(result[0].recurringTaskId);
+  }
+
   revalidatePath("/tasks");
   revalidatePath(`/tasks/${id}`);
   revalidatePath("/analytics");
+  revalidatePath("/focus");
   return result[0];
 }
 
