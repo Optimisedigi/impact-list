@@ -26,7 +26,7 @@ import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
 import type { Task } from "@/types";
 import { daysLeft, formatDateShort } from "@/lib/time-utils";
-import { MoreHorizontal, Trash2, Clock, Play, Square, Copy, Repeat, ExternalLink } from "lucide-react";
+import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import type { CopiedCell } from "./task-table";
@@ -188,8 +188,9 @@ export function TaskRow({
   onCopyCell: (cell: CopiedCell) => void;
   isHighlighted?: boolean;
 }) {
-  const { startTimer, stopTimer, isRunning } = useTaskTimer();
+  const { startTimer, pauseTimer, isRunning, isPaused, finishTimer } = useTaskTimer();
   const timerActive = isRunning(task.id);
+  const timerPaused = isPaused(task.id);
   const [isPending, startTransition] = useTransition();
   const [optimisticTask, setOptimisticTask] = useOptimistic(
     task,
@@ -199,6 +200,14 @@ export function TaskRow({
   function saveField(field: string, value: string | number | null) {
     startTransition(async () => {
       setOptimisticTask({ [field]: value } as Partial<Task>);
+      // When marking done, finish any running/paused timer and log the accumulated time
+      if (field === "status" && value === "done" && (timerActive || timerPaused)) {
+        const hours = finishTimer(task.id);
+        const rounded = Math.round(hours * 100) / 100;
+        if (rounded > 0) {
+          await quickLogHours(task.id, rounded);
+        }
+      }
       await updateTaskField(task.id, field, value);
     });
   }
@@ -340,23 +349,17 @@ export function TaskRow({
           <Button
             variant="ghost"
             size="icon"
-            className={`h-5 w-5 ${timerActive ? "text-red-500 hover:text-red-400" : "text-green-600 hover:text-green-500"}`}
+            className={`h-5 w-5 ${timerActive ? "text-yellow-500 hover:text-yellow-400" : timerPaused ? "text-green-600 hover:text-green-500" : "text-green-600 hover:text-green-500"}`}
             onClick={() => {
               if (timerActive) {
-                const hours = stopTimer(task.id);
-                const rounded = Math.round(hours * 100) / 100;
-                if (rounded > 0) {
-                  startTransition(async () => {
-                    await quickLogHours(task.id, rounded);
-                  });
-                }
+                pauseTimer(task.id);
               } else {
                 startTimer(task.id, optimisticTask.title);
               }
             }}
-            title={timerActive ? "Stop timer" : "Start timer"}
+            title={timerActive ? "Pause timer" : timerPaused ? "Resume timer" : "Start timer"}
           >
-            {timerActive ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+            {timerActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3 fill-current" />}
           </Button>
           <Button
             variant="ghost"

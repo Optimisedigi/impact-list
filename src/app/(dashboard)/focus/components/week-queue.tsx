@@ -10,12 +10,15 @@ import type { Task } from "@/types";
 import { formatDateShort } from "@/lib/time-utils";
 import { Zap, Repeat, X, Check } from "lucide-react";
 import { updateTaskField, dismissFromFocus } from "@/server/actions/tasks";
+import { quickLogHours } from "@/server/actions/time-entries";
+import { useTaskTimer } from "@/components/timer/task-timer-context";
 import Link from "next/link";
 
-function QueueItem({ task }: { task: Task }) {
+function QueueItem({ task, isOverdue }: { task: Task; isOverdue?: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
+  const { finishTimer, hasTimer } = useTaskTimer();
 
   function handleDismiss() {
     startTransition(async () => {
@@ -25,6 +28,13 @@ function QueueItem({ task }: { task: Task }) {
 
   function handleMarkDone() {
     startTransition(async () => {
+      if (hasTimer(task.id)) {
+        const hours = finishTimer(task.id);
+        const rounded = Math.round(hours * 100) / 100;
+        if (rounded > 0) {
+          await quickLogHours(task.id, rounded);
+        }
+      }
       await updateTaskField(task.id, "status", "done");
       setConfirming(false);
     });
@@ -49,14 +59,14 @@ function QueueItem({ task }: { task: Task }) {
 
   return (
     <div
-      className={`flex items-center justify-between rounded-md border border-border/50 px-3 py-2 group ${isPending ? "opacity-40" : ""}`}
+      className={`flex items-center justify-between rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
     >
       <div className="flex items-center gap-2 min-w-0">
         <div
           className="h-2 w-2 rounded-full shrink-0"
           style={{ backgroundColor: cat.color }}
         />
-        <Link href={`/tasks?highlight=${task.id}`} className="truncate text-sm hover:underline">
+        <Link href={`/tasks?highlight=${task.id}`} className="truncate text-sm hover:underline" title={task.title}>
           {task.title}
         </Link>
         {task.recurringTaskId && (
@@ -99,7 +109,7 @@ function QueueItem({ task }: { task: Task }) {
   );
 }
 
-export function WeekQueue({ tasks }: { tasks: Task[] }) {
+export function WeekQueue({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Set<number> }) {
   return (
     <Card className="glass">
       <CardHeader className="pb-2">
@@ -111,7 +121,7 @@ export function WeekQueue({ tasks }: { tasks: Task[] }) {
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => (
-              <QueueItem key={task.id} task={task} />
+              <QueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} />
             ))}
           </div>
         )}

@@ -11,12 +11,15 @@ import type { Task } from "@/types";
 import { Zap, X, Check } from "lucide-react";
 import { updateTaskField } from "@/server/actions/tasks";
 import { dismissFromFocus } from "@/server/actions/tasks";
+import { quickLogHours } from "@/server/actions/time-entries";
+import { useTaskTimer } from "@/components/timer/task-timer-context";
 import Link from "next/link";
 
-function TaskCard({ task, index }: { task: Task; index: number }) {
+function TaskCard({ task, index, isOverdue }: { task: Task; index: number; isOverdue?: boolean }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
+  const { finishTimer, hasTimer } = useTaskTimer();
 
   function handleDismiss() {
     startTransition(async () => {
@@ -26,6 +29,14 @@ function TaskCard({ task, index }: { task: Task; index: number }) {
 
   function handleMarkDone() {
     startTransition(async () => {
+      // Finish any running/paused timer and log accumulated time
+      if (hasTimer(task.id)) {
+        const hours = finishTimer(task.id);
+        const rounded = Math.round(hours * 100) / 100;
+        if (rounded > 0) {
+          await quickLogHours(task.id, rounded);
+        }
+      }
       await updateTaskField(task.id, "status", "done");
       setConfirming(false);
     });
@@ -38,7 +49,7 @@ function TaskCard({ task, index }: { task: Task; index: number }) {
       animate={{ opacity: isPending ? 0.4 : 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
     >
-      <Card className="glass-strong relative overflow-hidden group">
+      <Card className={`glass-strong relative overflow-hidden group ${isOverdue ? "glow-red border-red-500/40" : ""}`}>
         <div
           className="absolute left-0 top-0 h-1 w-full"
           style={{ backgroundColor: cat.color }}
@@ -120,7 +131,7 @@ function TaskCard({ task, index }: { task: Task; index: number }) {
   );
 }
 
-export function TopTasks({ tasks }: { tasks: Task[] }) {
+export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Set<number> }) {
   if (tasks.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
@@ -132,7 +143,7 @@ export function TopTasks({ tasks }: { tasks: Task[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {tasks.map((task, i) => (
-        <TaskCard key={task.id} task={task} index={i} />
+        <TaskCard key={task.id} task={task} index={i} isOverdue={overdueIds?.has(task.id)} />
       ))}
     </div>
   );
