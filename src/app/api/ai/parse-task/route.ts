@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAllClients } from "@/server/actions/clients";
+import { chatCompletion, isAIConfigured } from "@/lib/ai-provider";
 
 export async function POST(request: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || apiKey === "your-key-here") {
+  if (!isAIConfigured()) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
+      { error: "AI provider not configured. See .env.example for setup." },
       { status: 500 }
     );
   }
@@ -44,40 +44,18 @@ Category guide:
 
 Today's date is ${new Date().toISOString().split("T")[0]}. If they say "next Friday", "end of month", etc., calculate the actual date.`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
+  try {
+    const responseText = await chatCompletion(prompt, 256);
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json({ error: "Could not parse response" }, { status: 500 });
+    }
+    const parsed = JSON.parse(jsonMatch[0]);
+    return NextResponse.json(parsed);
+  } catch (err) {
     return NextResponse.json(
-      { error: `Claude API error: ${response.status} - ${err}` },
+      { error: err instanceof Error ? err.message : "AI request failed" },
       { status: 500 }
     );
   }
-
-  const data = await response.json();
-  const responseText = data.content?.[0]?.text;
-
-  if (!responseText) {
-    return NextResponse.json({ error: "No response from Claude" }, { status: 500 });
-  }
-
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return NextResponse.json({ error: "Could not parse response" }, { status: 500 });
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]);
-  return NextResponse.json(parsed);
 }

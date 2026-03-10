@@ -7,12 +7,12 @@ import { getActiveGoals } from "@/server/queries/growth-phases";
 import { getCurrentTargets } from "@/server/actions/category-targets";
 import { getWeeklyPriorities } from "@/server/actions/weekly-priorities";
 import { getBusinessContext } from "@/server/actions/business-context";
+import { chatCompletion, isAIConfigured } from "@/lib/ai-provider";
 
 export async function POST() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || apiKey === "your-key-here") {
+  if (!isAIConfigured()) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured in .env.local" },
+      { error: "AI provider not configured. See .env.example for setup." },
       { status: 500 }
     );
   }
@@ -107,63 +107,43 @@ A brief (1-2 sentence) explanation of why this task has this leverage score and 
 Return ONLY valid JSON in this format:
 {"scores": [{"taskId": 1, "priorityScore": 8, "leverageScore": 9, "sequenceReason": "Explanation here"}, ...]}`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  try {
+    const text = await chatCompletion(prompt, 4096);
 
-  if (!response.ok) {
-    const err = await response.text();
+    // Extract JSON from response (handle markdown code blocks)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json({ error: "Could not parse AI response as JSON" }, { status: 500 });
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const scores = parsed.scores;
+
+    if (!Array.isArray(scores)) {
+      return NextResponse.json({ error: "Invalid scores format" }, { status: 500 });
+    }
+
+    // Update all tasks
+    let updated = 0;
+    for (const score of scores) {
+      await db
+        .update(tasks)
+        .set({
+          priorityScore: score.priorityScore,
+          leverageScore: score.leverageScore,
+          sequenceReason: score.sequenceReason,
+          dismissedFromFocus: null,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(tasks.id, score.taskId));
+      updated++;
+    }
+
+    return NextResponse.json({ success: true, updated });
+  } catch (err) {
     return NextResponse.json(
-      { error: `Claude API error: ${response.status} - ${err}` },
+      { error: err instanceof Error ? err.message : "AI scoring failed" },
       { status: 500 }
     );
   }
-
-  const data = await response.json();
-  const text = data.content?.[0]?.text;
-
-  if (!text) {
-    return NextResponse.json({ error: "No response from Claude" }, { status: 500 });
-  }
-
-  // Extract JSON from response (handle markdown code blocks)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return NextResponse.json({ error: "Could not parse Claude response as JSON" }, { status: 500 });
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]);
-  const scores = parsed.scores;
-
-  if (!Array.isArray(scores)) {
-    return NextResponse.json({ error: "Invalid scores format" }, { status: 500 });
-  }
-
-  // Update all tasks
-  let updated = 0;
-  for (const score of scores) {
-    await db
-      .update(tasks)
-      .set({
-        priorityScore: score.priorityScore,
-        leverageScore: score.leverageScore,
-        sequenceReason: score.sequenceReason,
-        dismissedFromFocus: null,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(tasks.id, score.taskId));
-    updated++;
-  }
-
-  return NextResponse.json({ success: true, updated });
 }
