@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useState, useOptimistic, useTransition } from "react";
 import {
   Select,
   SelectContent,
@@ -9,7 +9,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { updateTaskField } from "@/server/actions/tasks";
+import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "../../components/priority-badge";
 import { formatDateShort, daysLeft } from "@/lib/time-utils";
@@ -28,15 +30,34 @@ export function TaskMetadataSidebar({
   categoryOptions: CategoryOption[];
 }) {
   const [isPending, startTransition] = useTransition();
+  const [markingDone, setMarkingDone] = useState(false);
+  const [hoursInput, setHoursInput] = useState("");
   const [optimistic, setOptimistic] = useOptimistic(
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
   );
 
   function saveField(field: string, value: string | number | null) {
+    if (field === "status" && value === "done") {
+      setHoursInput("");
+      setMarkingDone(true);
+      return;
+    }
     startTransition(async () => {
       setOptimistic({ [field]: value } as Partial<Task>);
       await updateTaskField(task.id, field, value);
+    });
+  }
+
+  function confirmMarkDone() {
+    startTransition(async () => {
+      setOptimistic({ status: "done" } as Partial<Task>);
+      const hours = parseFloat(hoursInput);
+      if (!isNaN(hours) && hours > 0) {
+        await quickLogHours(task.id, hours);
+      }
+      await updateTaskField(task.id, "status", "done");
+      setMarkingDone(false);
     });
   }
 
@@ -49,21 +70,51 @@ export function TaskMetadataSidebar({
       <h2 className="text-sm font-medium">Details</h2>
 
       <Field label="Status">
-        <Select
-          value={optimistic.status}
-          onValueChange={(v) => saveField("status", v)}
-        >
-          <SelectTrigger className="h-8 w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                <StatusBadge status={s.value} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {markingDone ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">Hours spent:</label>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                value={hoursInput}
+                onChange={(e) => setHoursInput(e.target.value)}
+                placeholder="0"
+                autoFocus
+                className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") confirmMarkDone();
+                  if (e.key === "Escape") setMarkingDone(false);
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="default" className="h-6 px-2 text-xs" onClick={confirmMarkDone} disabled={isPending}>
+                Mark Done
+              </Button>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setMarkingDone(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Select
+            value={optimistic.status}
+            onValueChange={(v) => saveField("status", v)}
+          >
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  <StatusBadge status={s.value} />
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </Field>
 
       <Field label="Category">

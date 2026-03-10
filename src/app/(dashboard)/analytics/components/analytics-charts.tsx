@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
-import { updateTaskField } from "@/server/actions/tasks";
+import { updateTaskField, deleteTask } from "@/server/actions/tasks";
 import {
   AreaChart,
   Area,
@@ -24,6 +24,8 @@ import {
   LabelList,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
@@ -362,6 +364,26 @@ function EditableHours({ taskId, value }: { taskId: number; value: number | null
   );
 }
 
+function DeleteTaskButton({ taskId }: { taskId: number }) {
+  const [isPending, startTransition] = useTransition();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+      disabled={isPending}
+      onClick={() => {
+        if (confirm("Delete this task?")) {
+          startTransition(() => deleteTask(taskId));
+        }
+      }}
+      title="Delete task"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
+
 export function CompletedTasksList({
   data,
 }: {
@@ -397,7 +419,8 @@ export function CompletedTasksList({
                     <th className="pb-2 pr-4 font-medium text-right">Est.</th>
                     <th className="pb-2 pr-4 font-medium text-right">Actual</th>
                     <th className="pb-2 pr-4 font-medium text-right">Diff</th>
-                    <th className="pb-2 font-medium">Completed</th>
+                    <th className="pb-2 pr-4 font-medium">Completed</th>
+                    <th className="pb-2 w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -447,7 +470,10 @@ export function CompletedTasksList({
                             "-"
                           )}
                         </td>
-                        <td className="py-2 text-muted-foreground">{task.completedDate}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">{task.completedDate}</td>
+                        <td className="py-2">
+                          <DeleteTaskButton taskId={task.id} />
+                        </td>
                       </tr>
                     );
                   })}

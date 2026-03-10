@@ -188,32 +188,86 @@ export function TaskRow({
   onCopyCell: (cell: CopiedCell) => void;
   isHighlighted?: boolean;
 }) {
-  const { startTimer, pauseTimer, isRunning, isPaused, finishTimer } = useTaskTimer();
+  const { startTimer, pauseTimer, isRunning, isPaused, finishTimer, getAllocatedSeconds } = useTaskTimer();
   const timerActive = isRunning(task.id);
   const timerPaused = isPaused(task.id);
   const [isPending, startTransition] = useTransition();
+  const [markingDone, setMarkingDone] = useState(false);
+  const [hoursInput, setHoursInput] = useState("");
   const [optimisticTask, setOptimisticTask] = useOptimistic(
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
   );
 
   function saveField(field: string, value: string | number | null) {
+    // Intercept marking as done to ask for hours
+    if (field === "status" && value === "done") {
+      if (timerActive || timerPaused) {
+        const secs = getAllocatedSeconds(task.id);
+        const h = Math.round((secs / 3600) * 100) / 100;
+        setHoursInput(h > 0 ? String(h) : "");
+      } else {
+        setHoursInput("");
+      }
+      setMarkingDone(true);
+      return;
+    }
     startTransition(async () => {
       setOptimisticTask({ [field]: value } as Partial<Task>);
-      // When marking done, finish any running/paused timer and log the accumulated time
-      if (field === "status" && value === "done" && (timerActive || timerPaused)) {
-        const hours = finishTimer(task.id);
-        const rounded = Math.round(hours * 100) / 100;
-        if (rounded > 0) {
-          await quickLogHours(task.id, rounded);
-        }
-      }
       await updateTaskField(task.id, field, value);
+    });
+  }
+
+  function confirmMarkDone() {
+    startTransition(async () => {
+      setOptimisticTask({ status: "done" } as Partial<Task>);
+      if (timerActive || timerPaused) {
+        finishTimer(task.id);
+      }
+      const hours = parseFloat(hoursInput);
+      if (!isNaN(hours) && hours > 0) {
+        await quickLogHours(task.id, hours);
+      }
+      await updateTaskField(task.id, "status", "done");
+      setMarkingDone(false);
     });
   }
 
   const days = daysLeft(optimisticTask.deadline);
   const overdue = days !== null && days < 0;
+
+  if (markingDone) {
+    return (
+      <TableRow className="[&>td]:align-middle">
+        <TableCell colSpan={11}>
+          <div className="flex items-center gap-3 py-1">
+            <span className="text-sm truncate">{task.title}</span>
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Hours spent:</label>
+            <input
+              type="number"
+              step="0.25"
+              min="0"
+              value={hoursInput}
+              onChange={(e) => setHoursInput(e.target.value)}
+              placeholder="0"
+              autoFocus
+              className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmMarkDone();
+                if (e.key === "Escape") setMarkingDone(false);
+              }}
+            />
+            <Button size="sm" variant="default" className="h-6 px-2 text-xs" onClick={confirmMarkDone} disabled={isPending}>
+              Done
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setMarkingDone(false)}>
+              Cancel
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
     <TableRow

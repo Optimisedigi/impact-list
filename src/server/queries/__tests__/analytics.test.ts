@@ -29,6 +29,7 @@ vi.mock('@/db/schema', () => ({
     deadline: 'tasks.deadline',
     toComplete: 'tasks.toComplete',
     dismissedFromFocus: 'tasks.dismissedFromFocus',
+    sortOrder: 'tasks.sortOrder',
   },
   timeEntries: {
     taskId: 'timeEntries.taskId',
@@ -45,6 +46,7 @@ vi.mock('drizzle-orm', () => ({
   lte: vi.fn((col, val) => ({ _op: 'lte', col, val })),
   lt: vi.fn((col, val) => ({ _op: 'lt', col, val })),
   ne: vi.fn((col, val) => ({ _op: 'ne', col, val })),
+  asc: vi.fn((col) => ({ _op: 'asc', col })),
   desc: vi.fn((col) => ({ _op: 'desc', col })),
   inArray: vi.fn((col, vals) => ({ _op: 'inArray', col, vals })),
   isNull: vi.fn((col) => ({ _op: 'isNull', col })),

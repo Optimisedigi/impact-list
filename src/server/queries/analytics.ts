@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { tasks, timeEntries } from "@/db/schema";
-import { eq, and, or, gte, lte, ne, desc, lt, inArray, sql, isNull } from "drizzle-orm";
+import { eq, and, or, gte, lte, ne, desc, asc, lt, inArray, sql, isNull } from "drizzle-orm";
 import { getWeekBounds, getMonthBounds } from "@/lib/time-utils";
 
 export type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all_time";
@@ -55,7 +55,7 @@ export async function getTopTasksByLeverage(limit = 3) {
         eq(tasks.toComplete, "today")
       )
     )
-    .orderBy(desc(tasks.leverageScore), desc(tasks.priorityScore))
+    .orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore), desc(tasks.priorityScore))
     .limit(limit);
 
   if (todayTasks.length >= limit) return todayTasks.slice(0, limit);
@@ -73,7 +73,7 @@ export async function getTopTasksByLeverage(limit = 3) {
         ...(todayIds.length > 0 ? [sql`${tasks.id} NOT IN (${sql.join(todayIds.map(id => sql`${id}`), sql`, `)})`] : [])
       )
     )
-    .orderBy(desc(tasks.leverageScore), desc(tasks.priorityScore))
+    .orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore), desc(tasks.priorityScore))
     .limit(remaining);
 
   return [...todayTasks, ...leverageFill];
@@ -107,5 +107,5 @@ export async function getThisWeekTasks() {
         )
       )
     )
-    .orderBy(desc(tasks.leverageScore));
+    .orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
 }

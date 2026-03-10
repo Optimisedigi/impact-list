@@ -82,6 +82,7 @@ export async function deleteTask(id: number) {
   await db.delete(tasks).where(eq(tasks.id, id));
   revalidatePath("/tasks");
   revalidatePath("/focus");
+  revalidatePath("/analytics");
 }
 
 export async function deleteTasks(ids: number[]) {
@@ -114,6 +115,16 @@ export async function duplicateTasks(ids: number[]) {
   revalidatePath("/tasks");
   revalidatePath("/focus");
   return result;
+}
+
+export async function reorderFocusTasks(orderedIds: number[]) {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(tasks)
+      .set({ sortOrder: i + 1 })
+      .where(eq(tasks.id, orderedIds[i]));
+  }
+  revalidatePath("/focus");
 }
 
 export async function dismissFromFocus(id: number) {
