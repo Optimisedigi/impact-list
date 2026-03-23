@@ -28,14 +28,17 @@ vi.mock('@/db/schema', () => ({
     title: 'recurringTasks.title',
     isActive: 'recurringTasks.isActive',
   },
-  tasks: { id: 'tasks.id' },
+  tasks: { id: 'tasks.id', status: 'tasks.status', recurringTaskId: 'tasks.recurringTaskId', deadline: 'tasks.deadline', toComplete: 'tasks.toComplete', dismissedFromFocus: 'tasks.dismissedFromFocus' },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col, val) => ({ col, val })),
+  ne: vi.fn((col, val) => ({ _type: 'ne', col, val })),
   and: vi.fn((...args) => ({ _type: 'and', args })),
   lte: vi.fn((col, val) => ({ _type: 'lte', col, val })),
+  gte: vi.fn((col, val) => ({ _type: 'gte', col, val })),
   isNull: vi.fn((col) => ({ _type: 'isNull', col })),
+  isNotNull: vi.fn((col) => ({ _type: 'isNotNull', col })),
   or: vi.fn((...args) => ({ _type: 'or', args })),
 }))
 

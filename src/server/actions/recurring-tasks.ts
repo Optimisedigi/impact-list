@@ -101,6 +101,26 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
     }
 
     if (shouldGenerate) {
+      // Skip if there's already an open (not done) task for this recurring task
+      const existingOpen = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.recurringTaskId, rt.id),
+            ne(tasks.status, "done")
+          )
+        )
+        .limit(1);
+      if (existingOpen.length > 0) {
+        // Update lastGeneratedAt so we don't keep checking
+        await db
+          .update(recurringTasks)
+          .set({ lastGeneratedAt: now.toISOString() })
+          .where(eq(recurringTasks.id, rt.id));
+        continue;
+      }
+
       // Calculate deadline based on frequency
       const deadline = new Date(now);
       switch (rt.frequency) {
@@ -180,6 +200,19 @@ export async function regenerateRecurringTask(recurringTaskId: number) {
     .where(and(eq(recurringTasks.id, recurringTaskId), eq(recurringTasks.isActive, true)));
 
   if (!rt) return;
+
+  // Skip if there's already an open (not done) task for this recurring task
+  const existingOpen = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.recurringTaskId, rt.id),
+        ne(tasks.status, "done")
+      )
+    )
+    .limit(1);
+  if (existingOpen.length > 0) return;
 
   const now = new Date();
   const deadline = new Date(now);

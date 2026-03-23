@@ -8,7 +8,7 @@ import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
 type AllocationData = { category: string; totalHours: number }[];
-type PeriodKey = "this_week" | "last_week" | "last_month" | "all_time";
+type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all_time";
 
 export function TimeAllocationTracker({
   initialData,
@@ -19,12 +19,12 @@ export function TimeAllocationTracker({
   targets: CategoryTarget[];
   fetchAllocation: (period: PeriodKey) => Promise<AllocationData>;
 }) {
-  const [period, setPeriod] = useState<PeriodKey>("this_week");
+  const [period, setPeriod] = useState<PeriodKey>("this_month");
   const [data, setData] = useState(initialData);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (period === "this_week") {
+    if (period === "this_month") {
       setData(initialData);
       return;
     }
@@ -46,6 +46,7 @@ export function TimeAllocationTracker({
             <TabsList className="h-7 flex-wrap">
               <TabsTrigger value="this_week" className="text-xs px-2 py-1">This Week</TabsTrigger>
               <TabsTrigger value="last_week" className="text-xs px-2 py-1">Last Week</TabsTrigger>
+              <TabsTrigger value="this_month" className="text-xs px-2 py-1">This Month</TabsTrigger>
               <TabsTrigger value="last_month" className="text-xs px-2 py-1">Last Month</TabsTrigger>
               <TabsTrigger value="all_time" className="text-xs px-2 py-1">All Time</TabsTrigger>
             </TabsList>

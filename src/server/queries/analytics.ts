@@ -92,7 +92,7 @@ export async function getThisWeekTasks() {
   const startDate = start.split("T")[0];
   const endDate = end.split("T")[0];
 
-  return db
+  const rows = await db
     .select()
     .from(tasks)
     .where(
@@ -108,4 +108,24 @@ export async function getThisWeekTasks() {
       )
     )
     .orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
+
+  // Deduplicate recurring tasks — keep the one with the latest deadline
+  const seen = new Map<number, typeof rows[number]>();
+  const result: typeof rows = [];
+  for (const task of rows) {
+    if (task.recurringTaskId) {
+      const existing = seen.get(task.recurringTaskId);
+      if (existing) {
+        // Keep the one with the later deadline
+        if (task.deadline && (!existing.deadline || task.deadline > existing.deadline)) {
+          result[result.indexOf(existing)] = task;
+          seen.set(task.recurringTaskId, task);
+        }
+        continue;
+      }
+      seen.set(task.recurringTaskId, task);
+    }
+    result.push(task);
+  }
+  return result;
 }
