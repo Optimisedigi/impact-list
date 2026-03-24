@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
-import { Zap, X, Check, GripVertical } from "lucide-react";
+import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause } from "lucide-react";
 import { updateTaskField, reorderFocusTasks } from "@/server/actions/tasks";
 import { dismissFromFocus } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
+import { formatDateShort, daysLeft } from "@/lib/time-utils";
 import Link from "next/link";
 import {
   DndContext,
@@ -62,7 +63,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
-  const { finishTimer, hasTimer, getAllocatedSeconds } = useTaskTimer();
+  const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
 
   function startConfirm() {
     // Pre-fill with timer hours if available
@@ -132,6 +133,18 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
               >
                 {cat.label}
               </Badge>
+              {task.category === "client_delivery" && task.client && (
+                <Badge
+                  variant="outline"
+                  className="border-0 text-xs"
+                  style={{
+                    backgroundColor: `color-mix(in oklch, ${cat.color} 10%, transparent)`,
+                    color: cat.color,
+                  }}
+                >
+                  {task.client}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-0.5">
               {task.leverageScore && (
@@ -157,6 +170,20 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
               {task.title}
             </Link>
           </CardTitle>
+          {task.deadline && (() => {
+            const days = daysLeft(task.deadline);
+            const isOverdueDeadline = days !== null && days < 0;
+            const isUrgent = days !== null && days >= 0 && days <= 3;
+            return (
+              <div className={`flex items-center gap-1 text-xs mt-1 ${isOverdueDeadline ? "text-red-400" : isUrgent ? "text-orange-400" : "text-muted-foreground"}`}>
+                <CalendarClock className="h-3 w-3" />
+                <span>{formatDateShort(task.deadline)}</span>
+                {days !== null && (
+                  <span>({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})</span>
+                )}
+              </div>
+            );
+          })()}
         </CardHeader>
         <CardContent>
           {task.sequenceReason && (
@@ -199,15 +226,44 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   Next: {task.toComplete}
                 </p>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-400 ml-auto"
-                onClick={startConfirm}
-              >
-                <Check className="h-3 w-3 mr-1" />
-                Done
-              </Button>
+              <div className="flex items-center gap-0.5 ml-auto">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-6 px-2 text-xs transition-opacity ${isRunning(task.id) ? "text-yellow-500" : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500"}`}
+                  onClick={() => {
+                    if (isRunning(task.id)) {
+                      pauseTimer(task.id);
+                    } else {
+                      startTimer(task.id, task.title);
+                    }
+                  }}
+                  title={isRunning(task.id) ? "Pause timer" : hasTimer(task.id) ? "Resume timer" : "Start timer"}
+                >
+                  {isRunning(task.id) ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1 fill-current" />}
+                  {isRunning(task.id) ? "Pause" : "Start"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                  asChild
+                >
+                  <Link href={`/tasks/${task.id}`}>
+                    <FileText className="h-3 w-3 mr-1" />
+                    Notes
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-400"
+                  onClick={startConfirm}
+                >
+                  <Check className="h-3 w-3 mr-1" />
+                  Done
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

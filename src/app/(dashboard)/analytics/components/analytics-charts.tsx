@@ -314,6 +314,52 @@ export function CategoryPercentageChart({ data }: { data: Record<string, unknown
   );
 }
 
+function EditableText({ taskId, field, value, className }: { taskId: number; field: string; value: string; className?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleSave() {
+    const raw = inputRef.current?.value.trim() ?? "";
+    if (raw === value) {
+      setEditing(false);
+      return;
+    }
+    startTransition(async () => {
+      await updateTaskField(taskId, field, raw || null);
+      setEditing(false);
+    });
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        defaultValue={value}
+        autoFocus
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className={`rounded border border-border bg-background px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-ring ${className ?? ""}`}
+        disabled={isPending}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className={`cursor-pointer rounded px-1.5 py-0.5 text-left hover:bg-muted transition-colors ${className ?? ""}`}
+      title="Click to edit"
+    >
+      {value || "-"}
+    </button>
+  );
+}
+
 function EditableHours({ taskId, value }: { taskId: number; value: number | null }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -433,10 +479,12 @@ export function CompletedTasksList({
                     return (
                       <tr key={task.id} className="border-b border-border/50 last:border-0">
                         <td className="py-2 pr-4">
-                          <div className="font-medium">{task.title}</div>
-                          {task.client && (
-                            <div className="text-xs text-muted-foreground">{task.client}</div>
-                          )}
+                          <div className="font-medium">
+                            <EditableText taskId={task.id} field="title" value={task.title} className="w-full" />
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            <EditableText taskId={task.id} field="client" value={task.client ?? ""} className="w-full text-xs" />
+                          </div>
                         </td>
                         <td className="py-2 pr-4">
                           <span

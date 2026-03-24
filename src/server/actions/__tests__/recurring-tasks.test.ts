@@ -232,9 +232,13 @@ describe('recurring-tasks actions', () => {
       )
     })
 
-    it('sets toComplete to "this_week" for weekly frequency', async () => {
+    it('sets toComplete based on whether deadline falls in current week', async () => {
+      // Use today's day-of-week so deadline lands today (within this week)
+      const todayDow = new Date().getDay()
+      // Convert JS day (0=Sun) to our format (1=Mon…7=Sun)
+      const ourDow = todayDow === 0 ? 7 : todayDow
       mockActiveRecurringTasks([
-        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },
+        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null, dayOfWeek: ourDow },
       ])
 
       await generateRecurringTasks()
@@ -328,9 +332,9 @@ describe('recurring-tasks actions', () => {
       expect(result.created).toBe(0)
     })
 
-    it('sets deadline 7 days out for weekly tasks', async () => {
+    it('sets deadline to next occurrence of dayOfWeek for weekly tasks', async () => {
       mockActiveRecurringTasks([
-        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },
+        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null, dayOfWeek: 1 },
       ])
 
       await generateRecurringTasks()
@@ -339,12 +343,15 @@ describe('recurring-tasks actions', () => {
       const deadline = new Date(valuesArg.deadline)
       const now = new Date()
       const diffDays = Math.round((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      expect(diffDays).toBe(7)
+      // Deadline should be on a Monday (JS day 1), within 0-7 days from now
+      expect(deadline.getDay()).toBe(1) // Monday
+      expect(diffDays).toBeGreaterThanOrEqual(0)
+      expect(diffDays).toBeLessThanOrEqual(7)
     })
 
-    it('sets deadline 14 days out for fortnightly tasks', async () => {
+    it('sets deadline to next occurrence of dayOfWeek for fortnightly tasks (7-14 days out)', async () => {
       mockActiveRecurringTasks([
-        { id: 1, title: 'Fortnightly', category: 'admin', frequency: 'fortnightly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },
+        { id: 1, title: 'Fortnightly', category: 'admin', frequency: 'fortnightly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null, dayOfWeek: 1 },
       ])
 
       await generateRecurringTasks()
@@ -353,7 +360,10 @@ describe('recurring-tasks actions', () => {
       const deadline = new Date(valuesArg.deadline)
       const now = new Date()
       const diffDays = Math.round((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      expect(diffDays).toBe(14)
+      // Deadline should be on a Monday, 7-14 days out
+      expect(deadline.getDay()).toBe(1) // Monday
+      expect(diffDays).toBeGreaterThanOrEqual(7)
+      expect(diffDays).toBeLessThanOrEqual(14)
     })
 
     it('sets deadline to next month for monthly tasks without dayOfMonth', async () => {

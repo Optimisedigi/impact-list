@@ -57,10 +57,24 @@ export async function deleteRecurringTask(id: number) {
   revalidatePath("/settings");
 }
 
+/**
+ * Calculate the next occurrence of a given day-of-week (1=Mon … 7=Sun).
+ * If today IS that day, returns today.
+ */
+function nextDayOfWeek(dayOfWeek: number, from: Date = new Date()): Date {
+  // JS: 0=Sun,1=Mon…6=Sat → convert our 1=Mon…7=Sun
+  const jsDay = dayOfWeek % 7; // 1→1,2→2,…,7→0
+  const current = from.getDay();
+  let diff = jsDay - current;
+  if (diff < 0) diff += 7;
+  // If diff === 0 it's today — still return today so it shows up this week
+  const result = new Date(from);
+  result.setDate(result.getDate() + diff);
+  return result;
+}
+
 function getToComplete(frequency: string, deadlineStr: string): "this_week" | null {
-  // Weekly tasks always show in focus
-  if (frequency === "weekly") return "this_week";
-  // Fortnightly/monthly only show when their deadline falls in the current week
+  // Show in focus only when the target date falls within the current week
   const { start, end } = getWeekBounds(0);
   const startDate = start.split("T")[0];
   const endDate = end.split("T")[0];
@@ -121,18 +135,28 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
         continue;
       }
 
-      // Calculate deadline based on frequency
-      const deadline = new Date(now);
+      // Calculate deadline based on frequency, using the configured day
+      let deadline: Date;
       switch (rt.frequency) {
         case "weekly":
-          deadline.setDate(deadline.getDate() + 7);
+          deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+          // If today is the target day, it's for this week; otherwise next occurrence
+          if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
+            // Today is the day — keep it
+          }
           break;
-        case "fortnightly":
-          deadline.setDate(deadline.getDate() + 14);
+        case "fortnightly": {
+          deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+          // Push to next week's occurrence (14 days from last, or at least 7 days out)
+          if (deadline.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
+            deadline.setDate(deadline.getDate() + 7);
+          }
           break;
+        }
         case "monthly":
+        default:
+          deadline = new Date(now);
           if (rt.dayOfMonth) {
-            // Set deadline to the specific day of next month
             deadline.setMonth(deadline.getMonth() + 1);
             const lastDay = new Date(deadline.getFullYear(), deadline.getMonth() + 1, 0).getDate();
             deadline.setDate(Math.min(rt.dayOfMonth, lastDay));
@@ -215,16 +239,28 @@ export async function regenerateRecurringTask(recurringTaskId: number) {
   if (existingOpen.length > 0) return;
 
   const now = new Date();
-  const deadline = new Date(now);
+  let deadline: Date;
 
   switch (rt.frequency) {
-    case "weekly":
-      deadline.setDate(deadline.getDate() + 7);
+    case "weekly": {
+      deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+      // If completing on the same day it's due, push to next week
+      if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
+        deadline.setDate(deadline.getDate() + 7);
+      }
       break;
-    case "fortnightly":
-      deadline.setDate(deadline.getDate() + 14);
+    }
+    case "fortnightly": {
+      deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+      // Ensure at least 7 days out for fortnightly
+      if (deadline.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
+        deadline.setDate(deadline.getDate() + 7);
+      }
       break;
+    }
     case "monthly":
+    default:
+      deadline = new Date(now);
       if (rt.dayOfMonth) {
         deadline.setMonth(deadline.getMonth() + 1);
         const lastDay = new Date(deadline.getFullYear(), deadline.getMonth() + 1, 0).getDate();

@@ -8,8 +8,8 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort } from "@/lib/time-utils";
-import { Zap, Repeat, X, Check, GripVertical } from "lucide-react";
-import { updateTaskField, dismissFromFocus, reorderFocusTasks } from "@/server/actions/tasks";
+import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause } from "lucide-react";
+import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import Link from "next/link";
@@ -61,7 +61,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
-  const { finishTimer, hasTimer, getAllocatedSeconds } = useTaskTimer();
+  const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
 
   function startConfirm() {
     if (hasTimer(task.id)) {
@@ -162,6 +162,46 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
             {task.leverageScore}
           </Badge>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-5 w-5 transition-opacity ${isRunning(task.id) ? "text-yellow-500" : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500"}`}
+          onClick={() => {
+            if (isRunning(task.id)) {
+              pauseTimer(task.id);
+            } else {
+              startTimer(task.id, task.title);
+            }
+          }}
+          title={isRunning(task.id) ? "Pause timer" : hasTimer(task.id) ? "Resume timer" : "Start timer"}
+        >
+          {isRunning(task.id) ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3 fill-current" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+          asChild
+          title="Open notes"
+        >
+          <Link href={`/tasks/${task.id}`}>
+            <FileText className="h-3 w-3" />
+          </Link>
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+          onClick={() => {
+            startTransition(async () => {
+              await promoteToTopPriority(task.id);
+            });
+          }}
+          disabled={isPending}
+          title="Move to top priority"
+        >
+          <ArrowUpToLine className="h-3 w-3" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
