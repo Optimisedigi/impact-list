@@ -175,7 +175,7 @@ export function FloatingTimerWidget() {
   const activeCount = timers.filter((t) => !t.paused).length;
 
   return (
-    <div className="fixed bottom-24 right-6 z-50 w-80 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl overflow-hidden">
+    <div className="fixed bottom-24 right-6 z-50 w-[calc(100vw-3rem)] max-w-80 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl overflow-hidden">
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-2.5 bg-gray-800 cursor-pointer"

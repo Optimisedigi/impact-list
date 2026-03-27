@@ -181,7 +181,7 @@ export function FloatingAddTask() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Category</Label>
                     <Select
@@ -221,7 +221,7 @@ export function FloatingAddTask() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Client</Label>
                     {clients.length > 0 ? (
@@ -247,7 +247,7 @@ export function FloatingAddTask() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>To Complete</Label>
                     <Select onValueChange={(v) => setValue("toComplete", v)}>
@@ -293,7 +293,7 @@ export function FloatingAddTask() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label>Category</Label>
                     <Select
@@ -333,7 +333,7 @@ export function FloatingAddTask() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="log-hours">Hours Spent</Label>
                     <Input id="log-hours" type="number" step="0.25" min="0.25" {...logForm.register("hoursSpent")} placeholder="e.g. 1.5" />

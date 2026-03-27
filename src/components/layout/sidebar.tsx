@@ -38,55 +38,72 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { collapsed, setCollapsed } = useSidebar();
+  const { collapsed, setCollapsed, mobileOpen, closeMobile } = useSidebar();
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
-        collapsed ? "w-14 cursor-pointer hover:bg-sidebar-accent/50" : "w-44"
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={closeMobile}
+        />
       )}
-      onClick={collapsed ? () => setCollapsed(false) : undefined}
-    >
-      <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center px-2" : "gap-2 px-3")}>
-        <Zap className="h-5 w-5 shrink-0 text-sidebar-foreground" />
-        {!collapsed && <span className="text-base font-semibold tracking-tight">Impact List</span>}
-      </div>
-      <nav className="flex-1 space-y-1 px-1.5 py-3">
-        {NAV_ITEMS.map((item) => {
-          const Icon = icons[item.icon];
-          const isActive = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
-                collapsed ? "justify-center px-2" : "gap-2.5 px-3",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!collapsed && item.label}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className={cn("border-t border-border py-2", collapsed ? "px-1.5" : "px-3")}>
-        {!collapsed && <ThemeToggle />}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-8 w-8", collapsed ? "mx-auto flex" : "mt-1")}
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </Button>
-      </div>
-    </aside>
+
+      <aside
+        className={cn(
+          // Base styles
+          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
+          // Desktop: always visible, width based on collapsed
+          "max-md:hidden md:flex",
+          collapsed ? "w-14 cursor-pointer hover:bg-sidebar-accent/50" : "w-44",
+          // Mobile: slide-out drawer
+          mobileOpen && "max-md:flex max-md:w-64"
+        )}
+        onClick={collapsed ? () => setCollapsed(false) : undefined}
+      >
+        <div className={cn("flex h-14 items-center border-b border-border", collapsed ? "justify-center px-2" : "gap-2 px-3")}>
+          <Zap className="h-5 w-5 shrink-0 text-sidebar-foreground" />
+          {!collapsed && <span className="text-base font-semibold tracking-tight">Impact List</span>}
+        </div>
+        <nav className="flex-1 space-y-1 px-1.5 py-3">
+          {NAV_ITEMS.map((item) => {
+            const Icon = icons[item.icon];
+            const isActive = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={collapsed ? item.label : undefined}
+                onClick={closeMobile}
+                className={cn(
+                  "flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
+                  collapsed ? "md:justify-center md:px-2" : "gap-2.5 px-3",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-primary"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {(!collapsed || mobileOpen) && item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className={cn("border-t border-border py-2", collapsed ? "px-1.5" : "px-3")}>
+          {!collapsed && <ThemeToggle />}
+          {/* Hide collapse button on mobile drawer */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-8 w-8 max-md:hidden", collapsed ? "mx-auto flex" : "mt-1")}
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </Button>
+        </div>
+      </aside>
+    </>
   );
 }
