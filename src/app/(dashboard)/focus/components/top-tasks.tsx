@@ -185,7 +185,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
             );
           })()}
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0 md:pt-6">
           {task.sequenceReason && (
             <p className="text-xs text-muted-foreground italic">
               {task.sequenceReason}

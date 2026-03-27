@@ -45,7 +45,7 @@ export async function WeekBanner() {
 
   return (
     <div className="mb-4 flex items-center justify-end">
-      <span className="text-base font-medium text-primary">
+      <span className="text-sm md:text-base font-medium text-primary">
         <span className="relative inline-block">
           <svg
             className="pointer-events-none absolute -inset-x-3.5 -top-1 -bottom-3"
@@ -69,7 +69,10 @@ export async function WeekBanner() {
           </svg>
           Week {weekNumber}
         </span>
-        {bizContext?.businessName ? ` of ${bizContext.businessName}` : ""} —{" "}
+        <span className="hidden md:inline">
+          {bizContext?.businessName ? ` of ${bizContext.businessName}` : ""} —{" "}
+        </span>
+        <span className="md:hidden"> — </span>
         {weekQuote}
       </span>
     </div>

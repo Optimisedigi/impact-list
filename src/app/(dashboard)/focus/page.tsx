@@ -45,10 +45,12 @@ export default async function FocusPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Focus Board</h1>
-          <p className="text-sm text-muted-foreground">Your daily command center. Work on what matters most.</p>
+          <h1 className="text-lg md:text-2xl font-bold tracking-tight">Focus Board</h1>
+          <p className="text-sm text-muted-foreground hidden md:block">Your daily command center. Work on what matters most.</p>
         </div>
-        <ScoreButton />
+        <div className="hidden md:block">
+          <ScoreButton />
+        </div>
       </div>
 
       <OverdueSection tasks={standaloneOverdue} />
