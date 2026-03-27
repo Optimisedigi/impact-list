@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { FloatingAddTask } from "@/components/layout/floating-add-task";
 import { TaskTimerProvider } from "@/components/timer/task-timer-context";
 import { FloatingTimerWidget } from "@/components/timer/floating-timer-widget";
