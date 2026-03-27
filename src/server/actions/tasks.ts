@@ -2,12 +2,21 @@
 
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, max } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { NewTask } from "@/types";
 
 export async function createTask(data: Omit<NewTask, "id" | "createdAt" | "updatedAt">) {
-  const result = await db.insert(tasks).values(data).returning();
+  // Get the current max sortOrder so new tasks appear at the bottom of the list
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: max(tasks.sortOrder) })
+    .from(tasks);
+  const nextOrder = (maxOrder ?? 0) + 1;
+
+  const result = await db
+    .insert(tasks)
+    .values({ ...data, sortOrder: nextOrder })
+    .returning();
   revalidatePath("/tasks");
   revalidatePath("/focus");
   return result[0];
@@ -95,7 +104,10 @@ export async function deleteTasks(ids: number[]) {
 export async function duplicateTasks(ids: number[]) {
   if (ids.length === 0) return [];
   const originals = await db.select().from(tasks).where(inArray(tasks.id, ids));
-  const now = new Date().toISOString();
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: max(tasks.sortOrder) })
+    .from(tasks);
+  let nextOrder = (maxOrder ?? 0) + 1;
   const newTasks = originals.map((t) => ({
     title: t.title,
     category: t.category,
@@ -110,6 +122,7 @@ export async function duplicateTasks(ids: number[]) {
     sequenceReason: null,
     actualHours: null,
     completedAt: null,
+    sortOrder: nextOrder++,
   }));
   const result = await db.insert(tasks).values(newTasks).returning();
   revalidatePath("/tasks");
@@ -124,6 +137,14 @@ export async function reorderFocusTasks(orderedIds: number[]) {
       .set({ sortOrder: i + 1 })
       .where(eq(tasks.id, orderedIds[i]));
   }
+  revalidatePath("/focus");
+}
+
+export async function promoteToTopPriority(id: number) {
+  await db
+    .update(tasks)
+    .set({ toComplete: "today", dismissedFromFocus: null })
+    .where(eq(tasks.id, id));
   revalidatePath("/focus");
 }
 

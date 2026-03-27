@@ -112,6 +112,7 @@ export const weeklyPriorities = sqliteTable("weekly_priorities", {
 
 export const businessContext = sqliteTable("business_context", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  businessName: text("business_name"),
   businessDescription: text("business_description"),
   toolsUsed: text("tools_used"),
   teamSize: text("team_size"),

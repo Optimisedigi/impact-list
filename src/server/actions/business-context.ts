@@ -5,6 +5,7 @@ import { businessContext } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export interface BusinessContextData {
+  businessName: string;
   businessDescription: string;
   toolsUsed: string;
   teamSize: string;
@@ -17,6 +18,7 @@ export async function getBusinessContext(): Promise<BusinessContextData | null> 
   if (rows.length === 0) return null;
   const row = rows[0];
   return {
+    businessName: row.businessName ?? "",
     businessDescription: row.businessDescription ?? "",
     toolsUsed: row.toolsUsed ?? "",
     teamSize: row.teamSize ?? "",
@@ -31,6 +33,7 @@ export async function saveBusinessContext(data: BusinessContextData) {
     await db
       .update(businessContext)
       .set({
+        businessName: data.businessName,
         businessDescription: data.businessDescription,
         toolsUsed: data.toolsUsed,
         teamSize: data.teamSize,
@@ -41,6 +44,7 @@ export async function saveBusinessContext(data: BusinessContextData) {
       .where(eq(businessContext.id, existing[0].id));
   } else {
     await db.insert(businessContext).values({
+      businessName: data.businessName,
       businessDescription: data.businessDescription,
       toolsUsed: data.toolsUsed,
       teamSize: data.teamSize,

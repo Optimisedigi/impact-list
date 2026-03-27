@@ -4,7 +4,7 @@ import { daysLeft, formatDateShort } from "@/lib/time-utils";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, FileText } from "lucide-react";
 import Link from "next/link";
 
 export function OverdueSection({ tasks }: { tasks: Task[] }) {
@@ -22,7 +22,7 @@ export function OverdueSection({ tasks }: { tasks: Task[] }) {
           const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
           return (
             <Card key={task.id} className="glow-red border-red-500/20">
-              <CardContent className="flex items-center justify-between p-3">
+              <CardContent className="flex items-center justify-between p-3 group">
                 <div className="min-w-0">
                   <Link href={`/tasks?highlight=${task.id}`} className="truncate text-sm font-medium hover:underline block">
                     {task.title}
@@ -45,6 +45,13 @@ export function OverdueSection({ tasks }: { tasks: Task[] }) {
                     )}
                   </div>
                 </div>
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary p-1 rounded"
+                  title="Open notes"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                </Link>
               </CardContent>
             </Card>
           );

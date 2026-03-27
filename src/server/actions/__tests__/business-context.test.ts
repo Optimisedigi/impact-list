@@ -54,6 +54,7 @@ describe('business-context actions', () => {
       mockSelectLimit.mockReturnValueOnce([
         {
           id: 1,
+          businessName: 'My Biz',
           businessDescription: 'My business',
           toolsUsed: 'Slack, Notion',
           teamSize: '5',
@@ -65,6 +66,7 @@ describe('business-context actions', () => {
       const result = await getBusinessContext()
 
       expect(result).toEqual({
+        businessName: 'My Biz',
         businessDescription: 'My business',
         toolsUsed: 'Slack, Notion',
         teamSize: '5',
@@ -77,6 +79,7 @@ describe('business-context actions', () => {
       mockSelectLimit.mockReturnValueOnce([
         {
           id: 1,
+          businessName: null,
           businessDescription: null,
           toolsUsed: null,
           teamSize: null,
@@ -88,6 +91,7 @@ describe('business-context actions', () => {
       const result = await getBusinessContext()
 
       expect(result).toEqual({
+        businessName: '',
         businessDescription: '',
         toolsUsed: '',
         teamSize: '',
@@ -101,6 +105,7 @@ describe('business-context actions', () => {
 
   describe('saveBusinessContext', () => {
     const data = {
+      businessName: 'Acme Digital',
       businessDescription: 'Digital agency',
       toolsUsed: 'Figma, Linear',
       teamSize: '10',
@@ -133,6 +138,7 @@ describe('business-context actions', () => {
 
       expect(mockInsert).toHaveBeenCalledWith(businessContext)
       expect(mockValues).toHaveBeenCalledWith({
+        businessName: 'Acme Digital',
         businessDescription: 'Digital agency',
         toolsUsed: 'Figma, Linear',
         teamSize: '10',

@@ -13,6 +13,7 @@ export function BusinessContextForm({ initial }: { initial: BusinessContextData 
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<BusinessContextData>({
+    businessName: initial?.businessName ?? "",
     businessDescription: initial?.businessDescription ?? "",
     toolsUsed: initial?.toolsUsed ?? "",
     teamSize: initial?.teamSize ?? "",
@@ -40,6 +41,16 @@ export function BusinessContextForm({ initial }: { initial: BusinessContextData 
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="bc-name">Business name</Label>
+          <Input
+            id="bc-name"
+            placeholder="e.g. Acme Digital"
+            value={form.businessName}
+            onChange={(e) => setForm({ ...form, businessName: e.target.value })}
+          />
+        </div>
+
         <div className="space-y-1.5">
           <Label htmlFor="bc-desc">What does your business do?</Label>
           <Textarea
