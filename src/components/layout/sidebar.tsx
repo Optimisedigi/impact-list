@@ -53,12 +53,12 @@ export function Sidebar() {
       <aside
         className={cn(
           // Base styles
-          "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
+          "fixed left-0 top-0 z-40 h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
           // Desktop: always visible, width based on collapsed
-          "max-md:hidden md:flex",
+          "hidden md:flex",
           collapsed ? "w-14 cursor-pointer hover:bg-sidebar-accent/50" : "w-44",
           // Mobile: slide-out drawer
-          mobileOpen && "max-md:flex max-md:w-64"
+          mobileOpen && "flex w-64 md:w-auto"
         )}
         onClick={collapsed ? () => setCollapsed(false) : undefined}
       >
@@ -85,7 +85,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {(!collapsed || mobileOpen) && item.label}
+                {(!collapsed || mobileOpen) && <span>{item.label}</span>}
               </Link>
             );
           })}
