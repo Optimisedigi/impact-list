@@ -37,6 +37,9 @@ yarn-error.log*
 # database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
+*.db-info
 /drizzle
 
 # vercel
