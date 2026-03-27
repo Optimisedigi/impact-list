@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useTaskTimer } from "./task-timer-context";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { updateTaskField } from "@/server/actions/tasks";
-import { Play, CheckCircle, Timer, Pause, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, CheckCircle, Timer, Pause, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { useState } from "react";
 
 function formatTime(totalSeconds: number): string {
@@ -52,13 +52,24 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
     });
   }
 
+  function handleLogOnly() {
+    const hours = finishTimer(taskId);
+    const roundedHours = Math.round(hours * 100) / 100;
+    startTransition(async () => {
+      if (roundedHours > 0) {
+        await quickLogHours(taskId, roundedHours);
+      }
+      setConfirmDone(false);
+    });
+  }
+
   if (confirmDone) {
     return (
       <div className="flex items-center gap-3 py-2">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-white truncate">{taskTitle}</p>
           <p className="text-xs text-muted-foreground">
-            Log {formatHours(allocated / 3600)} and mark done?
+            Log {formatHours(allocated / 3600)}
           </p>
         </div>
         <div className="flex items-center gap-1">
@@ -68,8 +79,19 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
             className="h-6 px-2 text-xs"
             onClick={handleDone}
             disabled={isPending}
+            title="Log time and mark task done"
           >
-            Yes
+            Done
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-6 px-2 text-xs"
+            onClick={handleLogOnly}
+            disabled={isPending}
+            title="Log time and remove timer"
+          >
+            Just Log
           </Button>
           <Button
             size="sm"
@@ -77,7 +99,7 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
             className="h-6 px-2 text-xs"
             onClick={() => setConfirmDone(false)}
           >
-            No
+            Cancel
           </Button>
         </div>
       </div>
@@ -119,6 +141,16 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
             <Pause className="h-4 w-4" />
           </Button>
         )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 shrink-0"
+          onClick={handleLogOnly}
+          disabled={isPending}
+          title="Log time & stop timer"
+        >
+          <Clock className="h-4 w-4" />
+        </Button>
         <Button
           size="icon"
           variant="ghost"
