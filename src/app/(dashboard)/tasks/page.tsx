@@ -31,10 +31,10 @@ export default async function TasksPage({
 
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col overflow-hidden">
-      <div className="shrink-0 space-y-4 pb-4">
+      <div className="shrink-0 space-y-2 sm:space-y-4 pb-2 sm:pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight">Tasks</h1>
             <p className="text-sm text-muted-foreground">
               {tasks.length} task{tasks.length !== 1 ? "s" : ""}
             </p>

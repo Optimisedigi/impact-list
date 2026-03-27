@@ -111,7 +111,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
           className="absolute left-0 top-0 h-1 w-full"
           style={{ backgroundColor: cat.color }}
         />
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-0 md:pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               {dragListeners && (
@@ -222,7 +222,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
           ) : (
             <div className="flex items-center justify-between mt-2">
               {task.toComplete && (
-                <p className="text-sm text-foreground/80">
+                <p className="text-sm text-foreground/80 whitespace-nowrap">
                   Next: {task.toComplete}
                 </p>
               )}

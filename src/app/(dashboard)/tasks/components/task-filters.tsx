@@ -92,21 +92,21 @@ export function TaskFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       <Input
         placeholder="Search tasks..."
-        className="w-56"
+        className="w-full sm:w-56"
         defaultValue={initialFilters.search ?? ""}
         onChange={(e) => debouncedSearch(e.target.value)}
       />
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto">
         {STATUS_OPTIONS.map((s) => (
           <Button
             key={s.value}
             variant={selectedStatuses.includes(s.value) ? "default" : "outline"}
             size="sm"
             className={cn(
-              "h-7 text-xs",
+              "h-6 sm:h-7 text-[10px] sm:text-xs px-1.5 sm:px-2 shrink-0",
               selectedStatuses.includes(s.value) ? "" : "opacity-50"
             )}
             onClick={() => toggleStatus(s.value)}
@@ -117,7 +117,7 @@ export function TaskFilters({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 text-xs text-muted-foreground"
+          className="h-6 sm:h-7 text-[10px] sm:text-xs shrink-0"
           onClick={selectAllStatuses}
         >
           All
@@ -127,7 +127,7 @@ export function TaskFilters({
         value={category ?? "all"}
         onValueChange={updateCategory}
       >
-        <SelectTrigger className="w-52">
+        <SelectTrigger className="w-full sm:w-52">
           <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>
@@ -144,7 +144,7 @@ export function TaskFilters({
           value={client ?? "all"}
           onValueChange={updateClient}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-full sm:w-36">
             <SelectValue placeholder="Client" />
           </SelectTrigger>
           <SelectContent>
