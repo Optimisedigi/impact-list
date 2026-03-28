@@ -42,7 +42,7 @@ export default async function FocusPage() {
   const filteredWeekTasks = weekTasks.filter((t) => !topIds.has(t.id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 min-w-0">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg md:text-2xl font-bold tracking-tight">Focus Board</h1>
@@ -61,7 +61,7 @@ export default async function FocusPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-4">
+        <div className="order-2 md:order-1 space-y-4">
           <PhaseProgressRing phase={goal90} tasks={allTasks} />
           <TimeAllocationTracker
             initialData={allocation}
@@ -69,7 +69,9 @@ export default async function FocusPage() {
             fetchAllocation={fetchAllocation}
           />
         </div>
-        <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} />
+        <div className="order-1 md:order-2">
+          <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} />
+        </div>
       </div>
     </div>
   );

@@ -127,9 +127,9 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
 
   return (
     <div
-      className={`flex items-center justify-between rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
+      className={`relative flex items-center rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         {dragListeners && (
           <button
             className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1"
@@ -150,22 +150,35 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
           <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" />
         )}
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0 ml-2">
         {task.deadline && (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground group-hover:hidden">
             {formatDateShort(task.deadline)}
           </span>
         )}
         {task.leverageScore && (
-          <Badge variant="outline" className="border-0 text-xs text-yellow-400">
+          <Badge variant="outline" className="border-0 text-xs text-yellow-400 group-hover:hidden">
             <Zap className="mr-0.5 h-3 w-3" />
             {task.leverageScore}
           </Badge>
         )}
+        {isRunning(task.id) && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 text-yellow-500 group-hover:hidden"
+            onClick={() => pauseTimer(task.id)}
+            title="Pause timer"
+          >
+            <Pause className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+      <div className="hidden group-hover:flex items-center gap-1 shrink-0 ml-2">
         <Button
           variant="ghost"
           size="icon"
-          className={`h-5 w-5 transition-opacity ${isRunning(task.id) ? "text-yellow-500" : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500"}`}
+          className={`h-5 w-5 transition-opacity ${isRunning(task.id) ? "text-yellow-500" : "text-muted-foreground hover:text-green-500"}`}
           onClick={() => {
             if (isRunning(task.id)) {
               pauseTimer(task.id);
@@ -180,7 +193,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+          className="h-5 w-5 text-muted-foreground hover:text-primary"
           asChild
           title="Open notes"
         >
@@ -191,7 +204,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+          className="h-5 w-5 text-muted-foreground hover:text-primary"
           onClick={() => {
             startTransition(async () => {
               await promoteToTopPriority(task.id);
@@ -205,7 +218,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-400"
+          className="h-5 w-5 text-muted-foreground hover:text-green-400"
           onClick={startConfirm}
           title="Mark as done"
         >
@@ -214,7 +227,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-400"
+          className="h-5 w-5 text-muted-foreground hover:text-red-400"
           onClick={handleDismiss}
           disabled={isPending}
           title="Remove from focus"

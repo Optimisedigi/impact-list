@@ -25,12 +25,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <span className="ml-2 text-base font-semibold">Impact List</span>
       </div>
       <main
-        className="min-h-screen p-4 transition-all duration-200 md:p-6"
+        className="min-h-screen p-3 transition-all duration-200 md:p-6 overflow-x-hidden"
         style={
           { "--sidebar-width": collapsed ? "3.5rem" : "11rem" } as React.CSSProperties
         }
       >
-        <div className="md:ml-[var(--sidebar-width)] md:transition-[margin] md:duration-200">
+        <div className="min-w-0 md:ml-[var(--sidebar-width)] md:transition-[margin] md:duration-200">
           {children}
         </div>
       </main>

@@ -106,14 +106,14 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
       animate={{ opacity: isPending ? 0.4 : 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
     >
-      <Card className={`glass-strong relative overflow-hidden group ${isOverdue ? "glow-red border-red-500/40" : ""}`}>
+      <Card className={`glass-strong relative group min-w-0 gap-2 ${isOverdue ? "glow-red border-red-500/40" : ""}`}>
         <div
           className="absolute left-0 top-0 h-1 w-full"
           style={{ backgroundColor: cat.color }}
         />
         <CardHeader className="pb-0 md:pb-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 min-w-0 flex-wrap">
               {dragListeners && (
                 <button
                   className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1"
@@ -135,24 +135,19 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
               </Badge>
               {task.category === "client_delivery" && task.client && (
                 <Badge
-                  variant="outline"
-                  className="border-0 text-xs"
-                  style={{
-                    backgroundColor: `color-mix(in oklch, ${cat.color} 10%, transparent)`,
-                    color: cat.color,
-                  }}
+                  className="border-0 text-xs bg-black text-white dark:bg-white dark:text-black"
                 >
                   {task.client}
                 </Badge>
               )}
-            </div>
-            <div className="flex items-center gap-0.5">
               {task.leverageScore && (
-                <div className="flex items-center gap-1 text-sm font-bold text-yellow-400">
+                <div className="flex items-center gap-0.5 text-sm font-bold text-yellow-400 ml-auto shrink-0">
                   <Zap className="h-3.5 w-3.5" />
                   {task.leverageScore}
                 </div>
               )}
+            </div>
+            <div className="flex items-center shrink-0">
               <Button
                 variant="ghost"
                 size="icon"
@@ -165,7 +160,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
               </Button>
             </div>
           </div>
-          <CardTitle className="text-base leading-tight">
+          <CardTitle className="text-base leading-tight break-words">
             <Link href={`/tasks?highlight=${task.id}`} className="hover:underline">
               {task.title}
             </Link>
@@ -185,7 +180,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
             );
           })()}
         </CardHeader>
-        <CardContent className="pt-0 md:pt-6">
+        <CardContent className="pt-0">
           {task.sequenceReason && (
             <p className="text-xs text-muted-foreground italic">
               {task.sequenceReason}
@@ -222,15 +217,15 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
           ) : (
             <div className="flex items-center justify-between mt-2">
               {task.toComplete && (
-                <p className="text-sm text-foreground/80 whitespace-nowrap">
+                <p className="text-xs text-foreground/80 truncate min-w-0 flex-1">
                   Next: {task.toComplete}
                 </p>
               )}
-              <div className="flex items-center gap-0.5 ml-auto">
+              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 ml-auto">
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className={`h-6 px-2 text-xs transition-opacity ${isRunning(task.id) ? "text-yellow-500" : "opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-green-500"}`}
+                  size="icon"
+                  className={`h-6 w-6 ${isRunning(task.id) ? "text-yellow-500" : "text-muted-foreground hover:text-green-500"}`}
                   onClick={() => {
                     if (isRunning(task.id)) {
                       pauseTimer(task.id);
@@ -240,28 +235,27 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   }}
                   title={isRunning(task.id) ? "Pause timer" : hasTimer(task.id) ? "Resume timer" : "Start timer"}
                 >
-                  {isRunning(task.id) ? <Pause className="h-3 w-3 mr-1" /> : <Play className="h-3 w-3 mr-1 fill-current" />}
-                  {isRunning(task.id) ? "Pause" : "Start"}
+                  {isRunning(task.id) ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3 fill-current" />}
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-primary"
                   asChild
+                  title="Notes"
                 >
                   <Link href={`/tasks/${task.id}`}>
-                    <FileText className="h-3 w-3 mr-1" />
-                    Notes
+                    <FileText className="h-3 w-3" />
                   </Link>
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-green-400"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-green-400"
                   onClick={startConfirm}
+                  title="Mark as done"
                 >
-                  <Check className="h-3 w-3 mr-1" />
-                  Done
+                  <Check className="h-3 w-3" />
                 </Button>
               </div>
             </div>
