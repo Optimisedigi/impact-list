@@ -15,8 +15,10 @@ export default function DashboardLayout({
   return (
     <TaskTimerProvider>
       <SidebarProvider>
-        <DashboardShell>
-          <WeekBanner />
+        <DashboardShell
+          mobileBanner={<WeekBanner />}
+          desktopBanner={<WeekBanner />}
+        >
           {children}
         </DashboardShell>
         <FloatingTimerWidget />
