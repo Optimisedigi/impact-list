@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useOptimistic, useTransition, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,19 +8,12 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort } from "@/lib/time-utils";
-import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause } from "lucide-react";
+import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle } from "lucide-react";
 import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import Link from "next/link";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
   type DraggableAttributes,
   type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
@@ -31,6 +24,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useFocusDnd } from "./focus-dnd-provider";
 
 function SortableQueueItem({ task, isOverdue }: { task: Task; isOverdue?: boolean }) {
   const {
@@ -60,8 +54,23 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [optimisticTask, setOptimisticTask] = useOptimistic(
+    task,
+    (current: Task, update: Partial<Task>) => ({ ...current, ...update })
+  );
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
+
+  function handleDeadlineChange(value: string) {
+    setEditingDeadline(false);
+    const newDeadline = value || null;
+    if (newDeadline === task.deadline) return;
+    startTransition(async () => {
+      setOptimisticTask({ deadline: newDeadline } as Partial<Task>);
+      await updateTaskField(task.id, "deadline", newDeadline);
+    });
+  }
 
   function startConfirm() {
     if (hasTimer(task.id)) {
@@ -151,11 +160,27 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0 ml-2">
-        {task.deadline && (
-          <span className="text-xs text-muted-foreground group-hover:hidden">
-            {formatDateShort(task.deadline)}
+        {editingDeadline ? (
+          <input
+            type="date"
+            autoFocus
+            defaultValue={optimisticTask.deadline ?? ""}
+            className="text-xs rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+            onBlur={(e) => handleDeadlineChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") { setEditingDeadline(false); }
+            }}
+          />
+        ) : optimisticTask.deadline ? (
+          <span
+            className="text-xs text-muted-foreground group-hover:hidden cursor-pointer hover:text-foreground"
+            onClick={() => setEditingDeadline(true)}
+            title="Click to edit deadline"
+          >
+            {formatDateShort(optimisticTask.deadline)}
           </span>
-        )}
+        ) : null}
         {task.leverageScore && (
           <Badge variant="outline" className="border-0 text-xs text-yellow-400 group-hover:hidden">
             <Zap className="mr-0.5 h-3 w-3" />
@@ -239,13 +264,10 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
   );
 }
 
-export function WeekQueue({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Set<number> }) {
+export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; overdueIds?: Set<number>; overdueTasks?: Task[] }) {
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor)
-  );
+  const { registerReorder } = useFocusDnd();
 
   const taskIds = tasks.map((t) => t.id).join(",");
   const [prevIds, setPrevIds] = useState(taskIds);
@@ -254,17 +276,23 @@ export function WeekQueue({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: S
     setPrevIds(taskIds);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((t) => t.id === active.id);
-    const newIndex = items.findIndex((t) => t.id === over.id);
-    const newItems = arrayMove(items, oldIndex, newIndex);
-    setItems(newItems);
-    startTransition(async () => {
-      await reorderFocusTasks(newItems.map((t) => t.id));
+  useEffect(() => {
+    registerReorder("week-queue", (activeId: number, overId: number) => {
+      setItems((prev) => {
+        const oldIndex = prev.findIndex((t) => t.id === activeId);
+        const newIndex = prev.findIndex((t) => t.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        const newItems = arrayMove(prev, oldIndex, newIndex);
+        startTransition(async () => {
+          await reorderFocusTasks(newItems.map((t) => t.id));
+        });
+        return newItems;
+      });
     });
-  }
+  }, [registerReorder, startTransition]);
+
+  const hasOverdue = overdueTasks && overdueTasks.length > 0;
+  const isEmpty = items.length === 0 && !hasOverdue;
 
   return (
     <Card className="glass">
@@ -272,18 +300,31 @@ export function WeekQueue({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: S
         <CardTitle className="text-base">This Week</CardTitle>
       </CardHeader>
       <CardContent>
-        {items.length === 0 ? (
+        {isEmpty ? (
           <p className="text-sm text-muted-foreground">No tasks due this week.</p>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {hasOverdue && (
               <div className="space-y-2">
-                {items.map((task) => (
-                  <SortableQueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} />
+                <h4 className="flex items-center gap-1.5 text-xs font-medium text-red-400 uppercase tracking-wider">
+                  <AlertTriangle className="h-3 w-3" />
+                  Overdue ({overdueTasks.length})
+                </h4>
+                {overdueTasks.map((task) => (
+                  <QueueItem key={task.id} task={task} isOverdue />
                 ))}
               </div>
-            </SortableContext>
-          </DndContext>
+            )}
+            {items.length > 0 && (
+              <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {items.map((task) => (
+                    <SortableQueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} />
+                  ))}
+                </div>
+              </SortableContext>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

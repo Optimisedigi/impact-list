@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useOptimistic, useTransition, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,20 +9,13 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause } from "lucide-react";
-import { updateTaskField, reorderFocusTasks } from "@/server/actions/tasks";
-import { dismissFromFocus } from "@/server/actions/tasks";
+import { updateTaskField, reorderFocusTasks, dismissFromFocus } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { formatDateShort, daysLeft } from "@/lib/time-utils";
 import Link from "next/link";
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
+  useDroppable,
   type DraggableAttributes,
   type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
@@ -33,6 +26,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useFocusDnd } from "./focus-dnd-provider";
 
 function SortableTaskCard({ task, index, isOverdue }: { task: Task; index: number; isOverdue?: boolean }) {
   const {
@@ -62,8 +56,23 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [optimisticTask, setOptimisticTask] = useOptimistic(
+    task,
+    (current: Task, update: Partial<Task>) => ({ ...current, ...update })
+  );
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
+
+  function handleDeadlineChange(value: string) {
+    setEditingDeadline(false);
+    const newDeadline = value || null;
+    if (newDeadline === task.deadline) return;
+    startTransition(async () => {
+      setOptimisticTask({ deadline: newDeadline } as Partial<Task>);
+      await updateTaskField(task.id, "deadline", newDeadline);
+    });
+  }
 
   function startConfirm() {
     // Pre-fill with timer hours if available
@@ -165,19 +174,41 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
               {task.title}
             </Link>
           </CardTitle>
-          {task.deadline && (() => {
-            const days = daysLeft(task.deadline);
+          {(() => {
+            const deadline = optimisticTask.deadline;
+            const days = deadline ? daysLeft(deadline) : null;
             const isOverdueDeadline = days !== null && days < 0;
             const isUrgent = days !== null && days >= 0 && days <= 3;
-            return (
-              <div className={`flex items-center gap-1 text-xs mt-1 ${isOverdueDeadline ? "text-red-400" : isUrgent ? "text-orange-400" : "text-muted-foreground"}`}>
+            return editingDeadline ? (
+              <div className="flex items-center gap-1 mt-1">
+                <CalendarClock className="h-3 w-3 text-muted-foreground" />
+                <input
+                  type="date"
+                  autoFocus
+                  defaultValue={deadline ?? ""}
+                  className="text-xs rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+                  onBlur={(e) => {
+                    handleDeadlineChange(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") { setEditingDeadline(false); }
+                  }}
+                />
+              </div>
+            ) : deadline ? (
+              <div
+                className={`flex items-center gap-1 text-xs mt-1 cursor-pointer hover:opacity-80 ${isOverdueDeadline ? "text-red-400" : isUrgent ? "text-orange-400" : "text-muted-foreground"}`}
+                onClick={() => setEditingDeadline(true)}
+                title="Click to edit deadline"
+              >
                 <CalendarClock className="h-3 w-3" />
-                <span>{formatDateShort(task.deadline)}</span>
+                <span>{formatDateShort(deadline)}</span>
                 {days !== null && (
                   <span>({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})</span>
                 )}
               </div>
-            );
+            ) : null;
           })()}
         </CardHeader>
         <CardContent className="pt-0">
@@ -269,10 +300,8 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
 export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Set<number> }) {
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor)
-  );
+  const { registerReorder } = useFocusDnd();
+  const { setNodeRef, isOver } = useDroppable({ id: "top-priority-drop" });
 
   // Sync with server data when tasks change
   const taskIds = tasks.map((t) => t.id).join(",");
@@ -282,35 +311,41 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
     setPrevIds(taskIds);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = items.findIndex((t) => t.id === active.id);
-    const newIndex = items.findIndex((t) => t.id === over.id);
-    const newItems = arrayMove(items, oldIndex, newIndex);
-    setItems(newItems);
-    startTransition(async () => {
-      await reorderFocusTasks(newItems.map((t) => t.id));
+  useEffect(() => {
+    registerReorder("top-priority", (activeId: number, overId: number) => {
+      setItems((prev) => {
+        const oldIndex = prev.findIndex((t) => t.id === activeId);
+        const newIndex = prev.findIndex((t) => t.id === overId);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        const newItems = arrayMove(prev, oldIndex, newIndex);
+        startTransition(async () => {
+          await reorderFocusTasks(newItems.map((t) => t.id));
+        });
+        return newItems;
+      });
     });
-  }
+  }, [registerReorder, startTransition]);
 
   if (items.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
-        No tasks to focus on. Add tasks with leverage scores.
+      <div
+        ref={setNodeRef}
+        className={`flex h-40 items-center justify-center rounded-lg border border-dashed text-muted-foreground transition-colors ${isOver ? "border-primary bg-primary/5" : ""}`}
+      >
+        {isOver ? "Drop here to promote to Top Priority" : "No tasks to focus on. Add tasks with leverage scores."}
       </div>
     );
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={items.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
+    <div ref={setNodeRef} className={`rounded-lg transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+      <SortableContext id="top-priority" items={items.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
         <div className="grid gap-4 md:grid-cols-3">
           {items.map((task, i) => (
             <SortableTaskCard key={task.id} task={task} index={i} isOverdue={overdueIds?.has(task.id)} />
           ))}
         </div>
       </SortableContext>
-    </DndContext>
+    </div>
   );
 }
