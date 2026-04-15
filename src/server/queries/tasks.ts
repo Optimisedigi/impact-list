@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { eq, like, and, desc, asc, inArray, ne, type SQL } from "drizzle-orm";
+import { eq, like, and, desc, asc, inArray, ne, isNotNull, type SQL } from "drizzle-orm";
 
 export async function getAllTasks() {
   return db.select().from(tasks).orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
@@ -45,6 +45,13 @@ export async function getTasksByFilter(filters: {
     : db.select().from(tasks);
 
   return query.orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
+}
+
+export async function getScoredTaskSummaries() {
+  return db
+    .select({ status: tasks.status, leverageScore: tasks.leverageScore })
+    .from(tasks)
+    .where(isNotNull(tasks.leverageScore));
 }
 
 export async function getDistinctClients() {

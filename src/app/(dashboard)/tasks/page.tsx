@@ -15,13 +15,13 @@ export default async function TasksPage({
   searchParams: Promise<{ status?: string; category?: string; client?: string; search?: string; highlight?: string }>;
 }) {
   const params = await searchParams;
-  // Auto-generate any due recurring tasks before fetching (skip revalidate since we're already rendering)
-  await generateRecurringTasks({ skipRevalidate: true });
+  // Auto-generate any due recurring tasks in parallel with data fetching
   const [tasks, clients, managedClients, dbCategories] = await Promise.all([
     getTasksByFilter(params),
     getDistinctClients(),
     getAllClients(),
     getAllCategories(),
+    generateRecurringTasks({ skipRevalidate: true }),
   ]);
   const clientNames = managedClients.length > 0
     ? managedClients.map((c) => c.name)

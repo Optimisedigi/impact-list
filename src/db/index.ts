@@ -11,6 +11,7 @@ const client = createClient(
         syncUrl,
         authToken: process.env.DATABASE_AUTH_TOKEN,
         syncInterval: 60,
+        offline: true,
       }
     : {
         url: process.env.DATABASE_URL || "file:./local.db",

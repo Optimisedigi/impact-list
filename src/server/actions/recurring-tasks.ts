@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { recurringTasks, tasks } from "@/db/schema";
-import { eq, and, lte, gte, ne, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, lte, gte, ne, isNull, isNotNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getWeekBounds } from "@/lib/time-utils";
 
@@ -82,135 +82,147 @@ function getToComplete(frequency: string, deadlineStr: string): "this_week" | nu
 }
 
 export async function generateRecurringTasks({ skipRevalidate = false }: { skipRevalidate?: boolean } = {}) {
-  const now = new Date();
+  try {
+    const now = new Date();
 
-  const active = await db
-    .select()
-    .from(recurringTasks)
-    .where(eq(recurringTasks.isActive, true));
+    const active = await db
+      .select()
+      .from(recurringTasks)
+      .where(eq(recurringTasks.isActive, true));
 
-  let created = 0;
+    if (active.length === 0) return { created: 0 };
 
-  for (const rt of active) {
-    // Check if we need to generate based on frequency
-    const lastGenerated = rt.lastGeneratedAt ? new Date(rt.lastGeneratedAt) : null;
-
-    let shouldGenerate = false;
-
-    if (!lastGenerated) {
-      shouldGenerate = true;
-    } else {
-      const daysSince = Math.floor((now.getTime() - lastGenerated.getTime()) / (1000 * 60 * 60 * 24));
-      switch (rt.frequency) {
-        case "weekly":
-          shouldGenerate = daysSince >= 7;
-          break;
-        case "fortnightly":
-          shouldGenerate = daysSince >= 14;
-          break;
-        case "monthly":
-          shouldGenerate = daysSince >= 28;
-          break;
-      }
-    }
-
-    if (shouldGenerate) {
-      // Skip if there's already an open (not done) task for this recurring task
-      const existingOpen = await db
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(
-          and(
-            eq(tasks.recurringTaskId, rt.id),
-            ne(tasks.status, "done")
-          )
+    // Batch: fetch all open (not done) tasks linked to any active recurring task
+    const activeIds = active.map((rt) => rt.id);
+    const openTaskRows = await db
+      .select({ recurringTaskId: tasks.recurringTaskId })
+      .from(tasks)
+      .where(
+        and(
+          inArray(tasks.recurringTaskId, activeIds),
+          ne(tasks.status, "done")
         )
-        .limit(1);
-      if (existingOpen.length > 0) {
-        // Update lastGeneratedAt so we don't keep checking
+      );
+    const recurringIdsWithOpenTasks = new Set(
+      openTaskRows.map((r) => r.recurringTaskId).filter(Boolean)
+    );
+
+    let created = 0;
+
+    for (const rt of active) {
+      // Check if we need to generate based on frequency
+      const lastGenerated = rt.lastGeneratedAt ? new Date(rt.lastGeneratedAt) : null;
+
+      let shouldGenerate = false;
+
+      if (!lastGenerated) {
+        shouldGenerate = true;
+      } else {
+        const daysSince = Math.floor((now.getTime() - lastGenerated.getTime()) / (1000 * 60 * 60 * 24));
+        switch (rt.frequency) {
+          case "weekly":
+            shouldGenerate = daysSince >= 7;
+            break;
+          case "fortnightly":
+            shouldGenerate = daysSince >= 14;
+            break;
+          case "monthly":
+            shouldGenerate = daysSince >= 28;
+            break;
+        }
+      }
+
+      if (shouldGenerate) {
+        // Skip if there's already an open (not done) task for this recurring task
+        if (recurringIdsWithOpenTasks.has(rt.id)) {
+          // Update lastGeneratedAt so we don't keep checking
+          await db
+            .update(recurringTasks)
+            .set({ lastGeneratedAt: now.toISOString() })
+            .where(eq(recurringTasks.id, rt.id));
+          continue;
+        }
+
+        // Calculate deadline based on frequency, using the configured day
+        let deadline: Date;
+        switch (rt.frequency) {
+          case "weekly":
+            deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+            // If today is the target day, it's for this week; otherwise next occurrence
+            if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
+              // Today is the day — keep it
+            }
+            break;
+          case "fortnightly": {
+            deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
+            // Push to next week's occurrence (14 days from last, or at least 7 days out)
+            if (deadline.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
+              deadline.setDate(deadline.getDate() + 7);
+            }
+            break;
+          }
+          case "monthly":
+          default:
+            deadline = new Date(now);
+            if (rt.dayOfMonth) {
+              deadline.setMonth(deadline.getMonth() + 1);
+              const lastDay = new Date(deadline.getFullYear(), deadline.getMonth() + 1, 0).getDate();
+              deadline.setDate(Math.min(rt.dayOfMonth, lastDay));
+            } else {
+              deadline.setMonth(deadline.getMonth() + 1);
+            }
+            break;
+        }
+
+        const deadlineStr = deadline.toISOString().split("T")[0];
+        await db.insert(tasks).values({
+          title: rt.title,
+          description: rt.description,
+          category: rt.category,
+          status: "not_started",
+          client: rt.client,
+          estimatedHours: rt.estimatedHours,
+          deadline: deadlineStr,
+          toComplete: getToComplete(rt.frequency, deadlineStr),
+          recurringTaskId: rt.id,
+        });
+
         await db
           .update(recurringTasks)
           .set({ lastGeneratedAt: now.toISOString() })
           .where(eq(recurringTasks.id, rt.id));
-        continue;
+
+        created++;
       }
-
-      // Calculate deadline based on frequency, using the configured day
-      let deadline: Date;
-      switch (rt.frequency) {
-        case "weekly":
-          deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
-          // If today is the target day, it's for this week; otherwise next occurrence
-          if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
-            // Today is the day — keep it
-          }
-          break;
-        case "fortnightly": {
-          deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
-          // Push to next week's occurrence (14 days from last, or at least 7 days out)
-          if (deadline.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
-            deadline.setDate(deadline.getDate() + 7);
-          }
-          break;
-        }
-        case "monthly":
-        default:
-          deadline = new Date(now);
-          if (rt.dayOfMonth) {
-            deadline.setMonth(deadline.getMonth() + 1);
-            const lastDay = new Date(deadline.getFullYear(), deadline.getMonth() + 1, 0).getDate();
-            deadline.setDate(Math.min(rt.dayOfMonth, lastDay));
-          } else {
-            deadline.setMonth(deadline.getMonth() + 1);
-          }
-          break;
-      }
-
-      const deadlineStr = deadline.toISOString().split("T")[0];
-      await db.insert(tasks).values({
-        title: rt.title,
-        description: rt.description,
-        category: rt.category,
-        status: "not_started",
-        client: rt.client,
-        estimatedHours: rt.estimatedHours,
-        deadline: deadlineStr,
-        toComplete: getToComplete(rt.frequency, deadlineStr),
-        recurringTaskId: rt.id,
-      });
-
-      await db
-        .update(recurringTasks)
-        .set({ lastGeneratedAt: now.toISOString() })
-        .where(eq(recurringTasks.id, rt.id));
-
-      created++;
     }
-  }
 
-  // Promote recurring tasks whose deadline is now within the current week
-  const { start, end } = getWeekBounds(0);
-  const weekStart = start.split("T")[0];
-  const weekEnd = end.split("T")[0];
-  await db
-    .update(tasks)
-    .set({ toComplete: "this_week" })
-    .where(
-      and(
-        isNotNull(tasks.recurringTaskId),
-        ne(tasks.status, "done"),
-        isNull(tasks.dismissedFromFocus),
-        isNull(tasks.toComplete),
-        gte(tasks.deadline, weekStart),
-        lte(tasks.deadline, weekEnd)
-      )
-    );
+    // Promote recurring tasks whose deadline is now within the current week
+    const { start, end } = getWeekBounds(0);
+    const weekStart = start.split("T")[0];
+    const weekEnd = end.split("T")[0];
+    await db
+      .update(tasks)
+      .set({ toComplete: "this_week" })
+      .where(
+        and(
+          isNotNull(tasks.recurringTaskId),
+          ne(tasks.status, "done"),
+          isNull(tasks.dismissedFromFocus),
+          isNull(tasks.toComplete),
+          gte(tasks.deadline, weekStart),
+          lte(tasks.deadline, weekEnd)
+        )
+      );
 
-  if (!skipRevalidate) {
-    revalidatePath("/tasks");
-    revalidatePath("/focus");
+    if (!skipRevalidate) {
+      revalidatePath("/tasks");
+      revalidatePath("/focus");
+    }
+    return { created };
+  } catch (err) {
+    console.warn("[recurring-tasks] generateRecurringTasks failed (transient DB error, will retry next load):", err instanceof Error ? err.message : err);
+    return { created: 0 };
   }
-  return { created };
 }
 
 /**

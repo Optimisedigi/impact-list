@@ -1,12 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { GrowthPhase, Task } from "@/types";
+import type { GrowthPhase } from "@/types";
+
+type ScoredTask = { status: string; leverageScore: number | null };
 
 export function PhaseProgressRing({
   phase,
   tasks,
 }: {
   phase: GrowthPhase | null;
-  tasks: Task[];
+  tasks: ScoredTask[];
 }) {
   if (!phase) {
     return (
