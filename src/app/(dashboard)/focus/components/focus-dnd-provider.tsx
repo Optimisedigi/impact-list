@@ -87,6 +87,7 @@ export function FocusDndProvider({ children }: { children: ReactNode }) {
   return (
     <FocusDndCtx.Provider value={{ registerReorder, isPending }}>
       <DndContext
+        id="focus-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
