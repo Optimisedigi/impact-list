@@ -72,13 +72,13 @@ export function PhaseProgressRing({
             {Math.round(pct)}%
           </text>
         </svg>
-        <div className="min-w-0">
-          <p className="font-medium truncate">{phase.name}</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium break-words">{phase.name}</p>
           <p className="text-sm text-muted-foreground">
             {done}/{totalGoal} high-leverage tasks done
           </p>
           {phase.focusAreas && (
-            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{phase.focusAreas}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-3 break-words">{phase.focusAreas}</p>
           )}
         </div>
       </CardContent>

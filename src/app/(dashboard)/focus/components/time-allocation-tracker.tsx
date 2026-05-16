@@ -64,9 +64,9 @@ export function TimeAllocationTracker({
             const target = targetMap[key] ?? 0;
             return (
               <div key={key}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span style={{ color: cat.color }}>{cat.label}</span>
-                  <span className="text-muted-foreground">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
+                  <span className="break-words min-w-0" style={{ color: cat.color }}>{cat.label}</span>
+                  <span className="text-muted-foreground tabular-nums whitespace-nowrap">
                     {hours.toFixed(1)}h ({actual.toFixed(0)}%) / target {target}%
                   </span>
                 </div>

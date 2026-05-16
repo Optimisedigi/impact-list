@@ -19,25 +19,25 @@ export function DashboardShell({
   return (
     <div className="min-h-screen">
       <Sidebar />
-      {/* Mobile sticky header: hamburger + title + week banner */}
+      {/* Mobile sticky header: hamburger + title + inline week banner */}
       <div className="sticky top-0 z-30 border-b border-border bg-background md:hidden">
-        <div className="flex h-12 items-center px-4">
+        <div className="flex h-12 items-center gap-2 px-4">
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9"
+            className="h-9 w-9 shrink-0"
             onClick={toggleMobile}
             aria-label="Toggle menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-2 text-base font-semibold">Impact List</span>
+          <span className="text-base font-semibold shrink-0">Impact List</span>
+          {mobileBanner && (
+            <div className="ml-auto min-w-0 flex-1 [&>div]:mb-0 [&>div]:justify-end">
+              {mobileBanner}
+            </div>
+          )}
         </div>
-        {mobileBanner && (
-          <div className="px-4 pb-2 [&>div]:mb-0 [&>div]:justify-start">
-            {mobileBanner}
-          </div>
-        )}
       </div>
       <main
         className="min-h-screen p-3 transition-all duration-200 md:p-6 overflow-x-hidden"

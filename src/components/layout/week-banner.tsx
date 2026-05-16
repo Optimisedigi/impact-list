@@ -44,8 +44,8 @@ export async function WeekBanner() {
   const weekQuote = weekQuotes[dayOfYear % weekQuotes.length](weekNumber);
 
   return (
-    <div className="mb-4 flex items-center justify-end">
-      <span className="text-sm md:text-base font-medium text-primary">
+    <div className="mb-0 flex min-w-0 items-center justify-end md:mb-4">
+      <span className="min-w-0 truncate text-xs md:text-base font-medium text-primary md:whitespace-normal">
         <span className="relative inline-block">
           <svg
             className="pointer-events-none absolute -inset-x-3.5 -top-1 -bottom-3"

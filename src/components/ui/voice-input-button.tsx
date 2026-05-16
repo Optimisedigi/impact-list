@@ -154,38 +154,10 @@ export function SmartTaskInput({ onResult, onError }: SmartInputProps) {
     }
   }, [handleParse, onError]);
 
+  const hasText = text.trim().length > 0;
+
   return (
     <div className="flex items-center gap-2">
-      <div className="relative flex-1">
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder='e.g. "Send report to Acme, admin, due Friday, 2hrs"'
-          className="pr-10 text-sm"
-          disabled={parsing}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleParse(text);
-            }
-          }}
-        />
-      </div>
-      <Button
-        type="button"
-        variant="default"
-        size="sm"
-        onClick={() => handleParse(text)}
-        disabled={parsing || !text.trim() || listening}
-        title="Parse with AI"
-        className="shrink-0"
-      >
-        {parsing ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Wand2 className="h-4 w-4" />
-        )}
-      </Button>
       <Button
         type="button"
         variant={listening ? "destructive" : "outline"}
@@ -201,6 +173,38 @@ export function SmartTaskInput({ onResult, onError }: SmartInputProps) {
           <Mic className="h-4 w-4" />
         )}
       </Button>
+      <div className="relative flex-1">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder='e.g. "Send report to Acme, admin, due Friday, 2hrs"'
+          className="pr-10 text-sm"
+          disabled={parsing}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleParse(text);
+            }
+          }}
+        />
+      </div>
+      {(hasText || parsing) && (
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          onClick={() => handleParse(text)}
+          disabled={parsing || !hasText || listening}
+          title="Parse with AI"
+          className="shrink-0"
+        >
+          {parsing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Wand2 className="h-4 w-4" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }
