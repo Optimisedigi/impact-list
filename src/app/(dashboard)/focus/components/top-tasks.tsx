@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic, useTransition, useEffect } from "react";
+import { useState, useOptimistic, useTransition, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { updateTaskField, reorderFocusTasks, dismissFromFocus } from "@/server/a
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { formatDateShort, daysLeft } from "@/lib/time-utils";
+import { LogHoursDialog } from "./log-hours-dialog";
 import Link from "next/link";
 import {
   useDroppable,
@@ -279,6 +280,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                     <FileText className="h-3 w-3" />
                   </Link>
                 </Button>
+                <LogHoursDialog task={task} variant="icon" className="h-6 w-6" />
                 <Button
                   variant="ghost"
                   size="icon"
@@ -302,6 +304,10 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
   const [, startTransition] = useTransition();
   const { registerReorder } = useFocusDnd();
   const { setNodeRef, isOver } = useDroppable({ id: "top-priority-drop" });
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   // Sync with server data when tasks change
   const taskIds = tasks.map((t) => t.id).join(",");
@@ -313,15 +319,14 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
 
   useEffect(() => {
     registerReorder("top-priority", (activeId: number, overId: number) => {
-      setItems((prev) => {
-        const oldIndex = prev.findIndex((t) => t.id === activeId);
-        const newIndex = prev.findIndex((t) => t.id === overId);
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        const newItems = arrayMove(prev, oldIndex, newIndex);
-        startTransition(async () => {
-          await reorderFocusTasks(newItems.map((t) => t.id));
-        });
-        return newItems;
+      const prev = itemsRef.current;
+      const oldIndex = prev.findIndex((t) => t.id === activeId);
+      const newIndex = prev.findIndex((t) => t.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newItems = arrayMove(prev, oldIndex, newIndex);
+      setItems(newItems);
+      startTransition(async () => {
+        await reorderFocusTasks(newItems.map((t) => t.id));
       });
     });
   }, [registerReorder, startTransition]);

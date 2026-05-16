@@ -198,7 +198,7 @@ export function TaskMetadataSidebar({
       <Field label="Estimated Hours">
         <Input
           type="number"
-          step="0.5"
+          step="0.25"
           value={optimistic.estimatedHours ?? ""}
           onChange={(e) =>
             saveField(

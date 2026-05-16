@@ -175,12 +175,13 @@ html, body {
 }
 
 @keyframes highlight-pulse {
-  0% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 80%); background-color: oklch(0.75 0.15 85 / 12%); }
+  0% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 18%); }
+  50% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 18%); }
   100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
 }
 
 .animate-highlight-pulse {
-  animation: highlight-pulse 2s ease-out forwards;
+  animation: highlight-pulse 3s ease-out forwards;
 }
 
 /* TipTap editor styles */

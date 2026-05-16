@@ -90,7 +90,7 @@ export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, 
       const row = document.querySelector(`[data-task-id="${highlightId}"]`);
       if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
-    const clearTimer = setTimeout(() => setActiveHighlightId(undefined), 2500);
+    const clearTimer = setTimeout(() => setActiveHighlightId(undefined), 3500);
     return () => { clearTimeout(timer); clearTimeout(clearTimer); };
   }, [highlightId]);
 

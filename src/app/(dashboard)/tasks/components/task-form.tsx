@@ -207,7 +207,7 @@ export function TaskForm({ clientOptions = [], categoryOptions = [] }: { clientO
             </div>
             <div>
               <Label htmlFor="estimatedHours">Est. Hours</Label>
-              <Input id="estimatedHours" type="number" step="0.5" {...register("estimatedHours")} />
+              <Input id="estimatedHours" type="number" step="0.25" {...register("estimatedHours")} />
             </div>
           </div>
 

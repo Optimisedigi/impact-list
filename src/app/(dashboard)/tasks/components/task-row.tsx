@@ -35,10 +35,12 @@ function InlineEdit({
   value,
   onSave,
   type = "text",
+  step,
 }: {
   value: string | number | null;
   onSave: (v: string) => void;
   type?: string;
+  step?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value ?? ""));
@@ -71,6 +73,7 @@ function InlineEdit({
       <Input
         autoFocus
         type={type}
+        step={step}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         className="h-7 w-full min-w-[60px]"
@@ -395,6 +398,7 @@ export function TaskRow({
           value={optimisticTask.estimatedHours}
           onSave={(v) => saveField("estimatedHours", v ? Number(v) : null)}
           type="number"
+          step="0.25"
         />
       </TableCell>
       <TableCell className="text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic, useTransition, useEffect } from "react";
+import { useState, useOptimistic, useTransition, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pau
 import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
+import { LogHoursDialog } from "./log-hours-dialog";
 import Link from "next/link";
 import {
   type DraggableAttributes,
@@ -226,6 +227,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
             <FileText className="h-3 w-3" />
           </Link>
         </Button>
+        <LogHoursDialog task={task} variant="icon" className="h-5 w-5" />
         <Button
           variant="ghost"
           size="icon"
@@ -268,6 +270,10 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
   const { registerReorder } = useFocusDnd();
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   const taskIds = tasks.map((t) => t.id).join(",");
   const [prevIds, setPrevIds] = useState(taskIds);
@@ -278,15 +284,14 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
 
   useEffect(() => {
     registerReorder("week-queue", (activeId: number, overId: number) => {
-      setItems((prev) => {
-        const oldIndex = prev.findIndex((t) => t.id === activeId);
-        const newIndex = prev.findIndex((t) => t.id === overId);
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        const newItems = arrayMove(prev, oldIndex, newIndex);
-        startTransition(async () => {
-          await reorderFocusTasks(newItems.map((t) => t.id));
-        });
-        return newItems;
+      const prev = itemsRef.current;
+      const oldIndex = prev.findIndex((t) => t.id === activeId);
+      const newIndex = prev.findIndex((t) => t.id === overId);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newItems = arrayMove(prev, oldIndex, newIndex);
+      setItems(newItems);
+      startTransition(async () => {
+        await reorderFocusTasks(newItems.map((t) => t.id));
       });
     });
   }, [registerReorder, startTransition]);
