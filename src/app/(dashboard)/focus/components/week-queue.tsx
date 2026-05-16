@@ -106,8 +106,8 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
 
   if (confirming) {
     return (
-      <div className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2">
-        <span className="truncate text-sm">{task.title}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
+        <span className="text-sm break-words min-w-0 flex-1">{task.title}</span>
         <div className="flex items-center gap-2 shrink-0">
           <label className="text-xs text-muted-foreground whitespace-nowrap">Hours:</label>
           <input
@@ -137,12 +137,12 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
 
   return (
     <div
-      className={`relative flex items-center rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
+      className={`relative flex flex-wrap items-center gap-y-1 rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-start gap-2 min-w-0 flex-1">
         {dragListeners && (
           <button
-            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1"
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1 mt-1"
             {...dragListeners}
             {...dragAttributes}
           >
@@ -150,14 +150,14 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
           </button>
         )}
         <div
-          className="h-2 w-2 rounded-full shrink-0"
+          className="h-2 w-2 rounded-full shrink-0 mt-1.5"
           style={{ backgroundColor: cat.color }}
         />
-        <Link href={`/tasks?highlight=${task.id}`} className="truncate text-sm hover:underline" title={task.title}>
+        <Link href={`/tasks?highlight=${task.id}`} className="text-sm hover:underline break-words min-w-0 flex-1" title={task.title}>
           {task.title}
         </Link>
         {task.recurringTaskId && (
-          <Repeat className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <Repeat className="h-3 w-3 shrink-0 text-muted-foreground mt-1" />
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0 ml-2">
