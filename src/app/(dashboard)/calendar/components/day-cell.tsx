@@ -95,6 +95,17 @@ export function DayCell({
   //  - not covered, 2+ events: paint with the default profile color.
   //  - not covered, no events: no tint.
   const singleBlock = blocks.length === 1 ? blocks[0]! : null;
+  // When all stacked events share the same profile, the cell background can
+  // safely take that profile's color — there's no ambiguity to communicate
+  // with the neutral default tint.
+  const sharedProfileColor =
+    blocks.length > 1 &&
+    blocks.every(
+      (b) =>
+        b.profileId !== null && b.profileId === blocks[0]!.profileId,
+    )
+      ? blockColor(blocks[0]!)
+      : null;
   let titleBg: string | undefined;
   if (isCovered) {
     // When an inline event lives inside a multi-day span, paint the title
@@ -110,6 +121,8 @@ export function DayCell({
         : undefined;
   } else if (singleBlock) {
     titleBg = blockColor(singleBlock);
+  } else if (sharedProfileColor) {
+    titleBg = sharedProfileColor;
   } else if (blocks.length > 1) {
     titleBg = defaultProfileColor ?? undefined;
   }
@@ -134,12 +147,16 @@ export function DayCell({
       }}
     >
       {isToday && (
+        // z-30 keeps the ring above the title slot (z-20) so colored event
+        // backdrops can't clip the right edge of the border.
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[2px]"
-          style={{
-            boxShadow: `inset 0 0 0 2px ${TODAY_RING_COLOR}`,
-          }}
+          className="pointer-events-none absolute inset-0 z-30 rounded-[2px] animate-today-ring"
+          style={
+            {
+              "--today-ring": TODAY_RING_COLOR,
+            } as React.CSSProperties
+          }
         />
       )}
       <span

@@ -12,6 +12,8 @@ import { YearSwitcher } from "./year-switcher";
 import { AutoSync } from "./auto-sync";
 import { ProfileFilter, useHiddenProfiles } from "./profile-filter";
 import { MobileBannerPortal } from "./mobile-banner-portal";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface YearGridProps {
   grid: YearGridModel;
@@ -183,7 +185,23 @@ export function YearGrid({
         onOpenChange={(open) => {
           if (!open) setDialog({ open: false });
         }}
+        onAddAnotherForDate={(date) =>
+          setDialog({ open: true, mode: "create", initialDate: date })
+        }
       />
+
+      {/* Floating "+" FAB — quick-add an event without picking a day first.
+          The dialog defaults to today's date; the user can change it inside. */}
+      <Button
+        type="button"
+        size="icon"
+        onClick={() => setDialog({ open: true, mode: "create" })}
+        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full shadow-lg"
+        aria-label="Add event"
+        title="Add event"
+      >
+        <Plus className="h-5 w-5" />
+      </Button>
       {/* Background poller: silently triggers /api/calendar/sync every 5 min
           while this view is mounted, so remote-side changes show up without
           needing to open Settings. */}

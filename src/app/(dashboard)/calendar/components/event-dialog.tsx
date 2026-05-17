@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { EVENT_COLORS } from "@/lib/constants";
 import {
   createCalendarEvent,
@@ -37,6 +38,10 @@ interface EventDialogProps {
   targets: CalendarTarget[];
   profiles: ProfileWithColor[];
   onOpenChange: (open: boolean) => void;
+  // Switch the dialog from "edit" into a fresh "create" for the same day,
+  // so users can quickly stack another event onto a date they're already
+  // looking at.
+  onAddAnotherForDate?: (date: string) => void;
 }
 
 interface FormState {
@@ -170,6 +175,7 @@ export function EventDialog({
   targets,
   profiles,
   onOpenChange,
+  onAddAnotherForDate,
 }: EventDialogProps) {
   return (
     <Dialog open={state.open} onOpenChange={onOpenChange}>
@@ -185,6 +191,7 @@ export function EventDialog({
               targets={targets}
               profiles={profiles}
               onClose={() => onOpenChange(false)}
+              onAddAnotherForDate={onAddAnotherForDate}
             />
           </div>
         )}
@@ -199,6 +206,7 @@ interface EventDialogBodyProps {
   targets: CalendarTarget[];
   profiles: ProfileWithColor[];
   onClose: () => void;
+  onAddAnotherForDate?: (date: string) => void;
 }
 
 function EventDialogBody({
@@ -207,6 +215,7 @@ function EventDialogBody({
   targets,
   profiles,
   onClose,
+  onAddAnotherForDate,
 }: EventDialogBodyProps) {
   if (state.mode === "create") {
     return (
@@ -228,6 +237,7 @@ function EventDialogBody({
       targets={targets}
       profiles={profiles}
       onClose={onClose}
+      onAddAnotherForDate={onAddAnotherForDate}
     />
   );
 }
@@ -240,12 +250,14 @@ function EditEventBody({
   targets,
   profiles,
   onClose,
+  onAddAnotherForDate,
 }: {
   eventId: number;
   resolvedColors: ResolvedColor[];
   targets: CalendarTarget[];
   profiles: ProfileWithColor[];
   onClose: () => void;
+  onAddAnotherForDate?: (date: string) => void;
 }) {
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -277,6 +289,10 @@ function EditEventBody({
   );
   const initialTargetId = boundTarget?.subscriptionId ?? null;
 
+  // The event's start date — used by the "+" button to spawn a sibling
+  // event on the same day.
+  const startDate = state.event.startsAt.slice(0, 10);
+
   return (
     <EventForm
       initial={fromEvent(state.event)}
@@ -289,6 +305,9 @@ function EditEventBody({
       boundTarget={boundTarget ?? null}
       source={state.event.source}
       onClose={onClose}
+      onAddAnother={
+        onAddAnotherForDate ? () => onAddAnotherForDate(startDate) : undefined
+      }
     />
   );
 }
@@ -308,6 +327,9 @@ interface EventFormProps {
   // provenance label so the user knows where this event came from.
   source?: CalendarEvent["source"];
   onClose: () => void;
+  // Edit-mode only: when provided, renders a "+" button in the header that
+  // closes this dialog and opens a fresh create dialog for the same day.
+  onAddAnother?: () => void;
 }
 
 function EventForm({
@@ -321,6 +343,7 @@ function EventForm({
   boundTarget = null,
   source,
   onClose,
+  onAddAnother,
 }: EventFormProps) {
   const [form, setForm] = useState<FormState>(initial);
   // Selected calendar target: null = local-only, otherwise a subscription id.
@@ -353,7 +376,24 @@ function EventForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{mode === "edit" ? "Edit event" : "New event"}</DialogTitle>
+        <div className="flex items-center justify-between gap-2">
+          <DialogTitle>
+            {mode === "edit" ? "Edit event" : "New event"}
+          </DialogTitle>
+          {mode === "edit" && onAddAnother && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddAnother}
+              className="h-7 gap-1 px-2 text-xs"
+              title="Add another event on this day"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add another
+            </Button>
+          )}
+        </div>
         {mode === "edit" && (
           <p className="text-xs text-muted-foreground">{provenanceLabel(source, boundTarget)}</p>
         )}
