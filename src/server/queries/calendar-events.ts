@@ -15,6 +15,9 @@ export interface ResolvedEvent extends CalendarEvent {
   // Falls back to the default profile when nothing else applies.
   resolvedProfileId: number | null;
   resolvedColorValue: string;
+  // The subscription (calendar) this event came from, if any. Used for
+  // per-calendar filtering on the calendar view.
+  resolvedSubscriptionId: number | null;
 }
 
 // Returns events overlapping the given inclusive date range.
@@ -62,13 +65,17 @@ export async function getResolvedEventsForYear(
 
   return events.map((ev) => {
     let profileId: number | null = null;
+    let subscriptionId: number | null = null;
     // 1. Per-event override (set explicitly via the event dialog) wins.
     if (ev.profileId) profileId = ev.profileId;
     // 2. Subscription's profile (remote events) for any event without an
     //    explicit override.
-    if (!profileId && ev.externalCalendarId) {
+    if (ev.externalCalendarId) {
       const sub = subByExternal.get(ev.externalCalendarId);
-      if (sub?.profileId) profileId = sub.profileId;
+      if (sub) {
+        subscriptionId = sub.id;
+        if (!profileId && sub.profileId) profileId = sub.profileId;
+      }
     }
     // 3. Default profile ("Calendar") catches everything else.
     if (!profileId && defaultProfile) profileId = defaultProfile.id;
@@ -80,7 +87,12 @@ export async function getResolvedEventsForYear(
         ? eventColorValue(ev.color)
         : eventColorValue(null);
 
-    return { ...ev, resolvedProfileId: profileId, resolvedColorValue: colorValue };
+    return {
+      ...ev,
+      resolvedProfileId: profileId,
+      resolvedColorValue: colorValue,
+      resolvedSubscriptionId: subscriptionId,
+    };
   });
 }
 

@@ -19,7 +19,7 @@ import {
 
 export async function toggleSubscriptionFlag(
   subscriptionId: number,
-  field: "syncEnabled" | "writeEnabled",
+  field: "syncEnabled" | "writeEnabled" | "visibleByDefault",
   value: boolean,
 ) {
   await db
@@ -27,6 +27,8 @@ export async function toggleSubscriptionFlag(
     .set({ [field]: value })
     .where(eq(calendarSubscriptions.id, subscriptionId));
   revalidatePath("/settings/calendar-accounts");
+  revalidatePath("/settings");
+  revalidatePath("/calendar");
 }
 
 // Re-discover the calendars exposed by an account's provider and upsert

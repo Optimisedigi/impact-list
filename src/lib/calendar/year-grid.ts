@@ -7,6 +7,7 @@ export type WeekdayShort = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"
 export interface GridEventInput extends CalendarEvent {
   resolvedProfileId?: number | null;
   resolvedColorValue?: string;
+  resolvedSubscriptionId?: number | null;
 }
 
 export interface EventBlock {
@@ -20,6 +21,8 @@ export interface EventBlock {
   resolvedColor: string | null;
   // Profile this event belongs to (for filtering on the grid).
   profileId: number | null;
+  // Subscription (calendar) this event came from, for per-calendar filtering.
+  subscriptionId: number | null;
   rowSpan: number;       // how many day-rows this block covers inside the month
   startDayIndex: number; // 0-based row inside the month (the day-of-month - 1)
   allDay: boolean;
@@ -187,6 +190,7 @@ export function buildYearGrid(
         color: ev.color,
         resolvedColor: ev.resolvedColorValue ?? null,
         profileId: ev.resolvedProfileId ?? null,
+        subscriptionId: ev.resolvedSubscriptionId ?? null,
         rowSpan,
         startDayIndex,
         allDay: ev.allDay,

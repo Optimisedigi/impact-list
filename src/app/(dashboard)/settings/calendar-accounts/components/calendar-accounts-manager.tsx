@@ -209,8 +209,24 @@ export function CalendarAccountsManager({ accounts, profiles }: Props) {
                 <tr className="text-left text-muted-foreground">
                   <th className="pb-1 font-normal">Calendar</th>
                   <th className="pb-1 font-normal">Profile</th>
-                  <th className="pb-1 text-center font-normal">Sync</th>
-                  <th className="pb-1 text-center font-normal">Write</th>
+                  <th
+                    className="pb-1 text-center font-normal"
+                    title="Pull events from this calendar"
+                  >
+                    Sync
+                  </th>
+                  <th
+                    className="pb-1 text-center font-normal"
+                    title="Push local edits back to this calendar"
+                  >
+                    Write
+                  </th>
+                  <th
+                    className="pb-1 text-center font-normal"
+                    title="Show events from this calendar by default on the calendar view"
+                  >
+                    Show
+                  </th>
                   <th className="pb-1 text-right font-normal"></th>
                 </tr>
               </thead>
@@ -267,6 +283,22 @@ export function CalendarAccountsManager({ accounts, profiles }: Props) {
                               "writeEnabled",
                               e.target.checked,
                             );
+                          })
+                        }
+                      />
+                    </td>
+                    <td className="py-1.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={sub.visibleByDefault}
+                        onChange={(e) =>
+                          startTransition(async () => {
+                            await toggleSubscriptionFlag(
+                              sub.id,
+                              "visibleByDefault",
+                              e.target.checked,
+                            );
+                            router.refresh();
                           })
                         }
                       />

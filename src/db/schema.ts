@@ -217,6 +217,13 @@ export const calendarSubscriptions = sqliteTable("calendar_subscriptions", {
   }),
   syncEnabled: integer("sync_enabled", { mode: "boolean" }).notNull().default(true),
   writeEnabled: integer("write_enabled", { mode: "boolean" }).notNull().default(true),
+  // Whether events from this calendar are visible by default on /calendar.
+  // Filtering still happens per profile (subscriptions inherit via their
+  // assigned profile), but flipping this lets you hide one calendar inside
+  // a profile that's otherwise shown.
+  visibleByDefault: integer("sub_visible_by_default", { mode: "boolean" })
+    .notNull()
+    .default(true),
   syncToken: text("sync_token"),
   ctag: text("ctag"),
   // Google push channel state

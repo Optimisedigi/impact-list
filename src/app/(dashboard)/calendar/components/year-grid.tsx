@@ -11,6 +11,7 @@ import { EventDialog, type EventDialogState } from "./event-dialog";
 import { YearSwitcher } from "./year-switcher";
 import { AutoSync } from "./auto-sync";
 import { ProfileFilter, useHiddenProfiles } from "./profile-filter";
+import { MobileBannerPortal } from "./mobile-banner-portal";
 
 interface YearGridProps {
   grid: YearGridModel;
@@ -26,9 +27,15 @@ const DAY_ROW_HEIGHT_DESKTOP = 18;
 const DAY_ROW_HEIGHT_MOBILE = 15;
 export const DAY_ROW_HEIGHT = DAY_ROW_HEIGHT_DESKTOP;
 
-export function YearGrid({ grid, resolvedColors, targets, profiles }: YearGridProps) {
+export function YearGrid({
+  grid,
+  resolvedColors,
+  targets,
+  profiles,
+}: YearGridProps) {
   const [dialog, setDialog] = useState<EventDialogState>({ open: false });
-  const [hiddenIds, setHiddenIds] = useHiddenProfiles(profiles);
+  const [hiddenIds, toggleProfile] = useHiddenProfiles(profiles);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const monthRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [dayRowHeight, setDayRowHeight] = useState(DAY_ROW_HEIGHT_DESKTOP);
@@ -46,25 +53,26 @@ export function YearGrid({ grid, resolvedColors, targets, profiles }: YearGridPr
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Filter the grid based on hidden profile chips. Removing a block also
-  // releases the day cells it covered so they read as empty rather than
-  // showing a stale "covered" overlay placeholder.
+  // Filter the grid based on hidden profile + subscription chips. Removing a
+  // block also releases the day cells it covered so they read as empty rather
+  // than showing a stale "covered" overlay placeholder.
   const filteredGrid = useMemo<YearGridModel>(() => {
     if (hiddenIds.size === 0) return grid;
+    const blockHidden = (b: { profileId: number | null }) =>
+      b.profileId !== null && hiddenIds.has(b.profileId);
     return {
       ...grid,
       months: grid.months.map((m) => {
         const removedBlockIds = new Set<string>();
         const blocks = m.blocks.filter((b) => {
-          const hide = b.profileId !== null && hiddenIds.has(b.profileId);
+          const hide = blockHidden(b);
           if (hide) removedBlockIds.add(b.blockId);
           return !hide;
         });
         const days = m.days.map((d) => {
           const next = { ...d };
-          if (next.inlineBlock) {
-            const pid = next.inlineBlock.profileId;
-            if (pid !== null && hiddenIds.has(pid)) next.inlineBlock = null;
+          if (next.inlineBlock && blockHidden(next.inlineBlock)) {
+            next.inlineBlock = null;
           }
           if (
             next.coveredByBlockId &&
@@ -138,12 +146,31 @@ export function YearGrid({ grid, resolvedColors, targets, profiles }: YearGridPr
         </div>
       </div>
 
-      {/* Profile filter chips at the bottom of the calendar. */}
-      <ProfileFilter
-        profiles={profiles}
-        hiddenIds={hiddenIds}
-        onChange={setHiddenIds}
-      />
+      {/* Desktop: profile filter chips pinned to the bottom of the calendar. */}
+      <div className="hidden md:block">
+        <ProfileFilter
+          profiles={profiles}
+          hiddenIds={hiddenIds}
+          onToggle={toggleProfile}
+        />
+      </div>
+
+      {/* Mobile: chips rendered into the shell's mobile header slot, to the
+          right of the "Impact List" title. The portal strips the inner
+          filter's border/padding so chips line up with the header height,
+          and a larger touch size makes them easy to tap. */}
+      <MobileBannerPortal>
+        {/* Two font sizes smaller than desktop (text-xs → text-[10px]) and
+            chips don't shrink, so when there are more than ~3 the row scrolls
+            horizontally instead of squishing. */}
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto [&>div]:flex-nowrap [&>div]:border-0 [&>div]:bg-transparent [&>div]:px-0 [&>div]:py-0 [&_button]:h-6 [&_button]:shrink-0 [&_button]:px-2 [&_button]:text-[10px]">
+          <ProfileFilter
+            profiles={profiles}
+            hiddenIds={hiddenIds}
+            onToggle={toggleProfile}
+          />
+        </div>
+      </MobileBannerPortal>
 
       <EventDialog
         state={dialog}
