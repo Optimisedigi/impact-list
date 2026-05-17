@@ -1,5 +1,6 @@
-import { google, type calendar_v3 } from "googleapis";
-import type { OAuth2Client } from "google-auth-library";
+import { google, type Auth, type calendar_v3 } from "googleapis";
+
+type OAuth2Client = Auth.OAuth2Client;
 import { db } from "@/db";
 import { calendarAccounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
