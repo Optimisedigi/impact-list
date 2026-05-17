@@ -31,25 +31,29 @@ export async function toggleSubscriptionFlag(
   revalidatePath("/calendar");
 }
 
-// Re-discover the calendars exposed by an account's provider and upsert
-// subscription rows. Picks up newly-shared Apple calendars and newly-added
-// Google calendars without disconnecting/reconnecting.
+// Re-discover the calendars exposed by an account's provider and bring the
+// local subscription rows in sync:
+//  - new upstream calendars → inserted as subscriptions
+//  - renamed/recolored calendars → local row updated to match
+//  - removed upstream calendars → local row + its events deleted
 export async function refreshAccountCalendars(
   accountId: number,
-): Promise<{ added: number; total: number }> {
+): Promise<{ added: number; updated: number; removed: number; total: number }> {
   const acc = (
     await db
       .select()
       .from(calendarAccounts)
       .where(eq(calendarAccounts.id, accountId))
   )[0];
-  if (!acc) return { added: 0, total: 0 };
+  if (!acc) return { added: 0, updated: 0, removed: 0, total: 0 };
 
   const existing = await db
     .select()
     .from(calendarSubscriptions)
     .where(eq(calendarSubscriptions.accountId, accountId));
-  const known = new Set(existing.map((s) => s.externalCalendarId));
+  const existingByExternalId = new Map(
+    existing.map((s) => [s.externalCalendarId, s] as const),
+  );
 
   let discovered: { id: string; name: string; color: string | null }[] = [];
 
@@ -78,22 +82,53 @@ export async function refreshAccountCalendars(
       }));
   }
 
+  const discoveredIds = new Set(discovered.map((d) => d.id));
+
   let added = 0;
+  let updated = 0;
   for (const cal of discovered) {
-    if (known.has(cal.id)) continue;
-    await db.insert(calendarSubscriptions).values({
-      accountId: acc.id,
-      externalCalendarId: cal.id,
-      name: cal.name,
-      color: cal.color,
-      syncEnabled: true,
-      writeEnabled: true,
-    });
-    added++;
+    const local = existingByExternalId.get(cal.id);
+    if (!local) {
+      await db.insert(calendarSubscriptions).values({
+        accountId: acc.id,
+        externalCalendarId: cal.id,
+        name: cal.name,
+        color: cal.color,
+        syncEnabled: true,
+        writeEnabled: true,
+      });
+      added++;
+      continue;
+    }
+    // Patch name/color when they drift. Leaves user-managed fields like
+    // profileId / syncEnabled / writeEnabled / visibleByDefault alone.
+    if (local.name !== cal.name || local.color !== cal.color) {
+      await db
+        .update(calendarSubscriptions)
+        .set({ name: cal.name, color: cal.color })
+        .where(eq(calendarSubscriptions.id, local.id));
+      updated++;
+    }
+  }
+
+  // Anything we have locally but the provider no longer reports is gone.
+  // Wipe its events too so the calendar view doesn't keep showing stale data.
+  let removed = 0;
+  for (const local of existing) {
+    if (discoveredIds.has(local.externalCalendarId)) continue;
+    await db
+      .delete(calendarEvents)
+      .where(eq(calendarEvents.externalCalendarId, local.externalCalendarId));
+    await db
+      .delete(calendarSubscriptions)
+      .where(eq(calendarSubscriptions.id, local.id));
+    removed++;
   }
 
   revalidatePath("/settings/calendar-accounts");
-  return { added, total: discovered.length };
+  revalidatePath("/settings");
+  revalidatePath("/calendar");
+  return { added, updated, removed, total: discovered.length };
 }
 
 // Hard-delete every event that was pulled from one subscription's remote

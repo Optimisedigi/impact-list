@@ -168,30 +168,38 @@ async function syncAppleSubscription(
   if (currentCtag && currentCtag === subscription.ctag) return;
 
   const objects = await appleListEvents(dav, target);
+  const now = Date.now();
+  const rangeStart = new Date(now - ONE_YEAR_MS).toISOString();
+  const rangeEnd = new Date(now + ONE_YEAR_MS).toISOString();
   for (const obj of objects) {
-    const parsed = parseVevent(obj.data);
-    if (!parsed) continue;
-    try {
-      await upsertExternalEvent({
-        title: parsed.title,
-        // Skip description on sync — same reason as Google above.
-        description: null,
-        location: parsed.location ?? null,
-        startsAt: parsed.startsAt,
-        endsAt: parsed.endsAt,
-        allDay: parsed.allDay,
-        color: null,
-        source: "apple",
-        externalId: parsed.uid,
-        externalCalendarId: subscription.externalCalendarId,
-        externalEtag: typeof obj.etag === "string" ? obj.etag : null,
-        externalUpdatedAt: null,
-      });
-      summary.pulled++;
-    } catch (e) {
-      summary.errors.push(
-        `Upsert ${parsed.uid}: ${e instanceof Error ? e.message : String(e)}`,
-      );
+    const occurrences = parseVevent(obj.data, {
+      rangeStart,
+      rangeEnd,
+      maxOccurrences: 500,
+    });
+    for (const parsed of occurrences) {
+      try {
+        await upsertExternalEvent({
+          title: parsed.title,
+          // Skip description on sync — same reason as Google above.
+          description: null,
+          location: parsed.location ?? null,
+          startsAt: parsed.startsAt,
+          endsAt: parsed.endsAt,
+          allDay: parsed.allDay,
+          color: null,
+          source: "apple",
+          externalId: parsed.uid,
+          externalCalendarId: subscription.externalCalendarId,
+          externalEtag: typeof obj.etag === "string" ? obj.etag : null,
+          externalUpdatedAt: null,
+        });
+        summary.pulled++;
+      } catch (e) {
+        summary.errors.push(
+          `Upsert ${parsed.uid}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
   }
 

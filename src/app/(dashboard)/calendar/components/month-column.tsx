@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MonthColumn as MonthColumnModel } from "@/lib/calendar/year-grid";
+import { eventColorValue } from "@/lib/constants";
 import { DayCell } from "./day-cell";
 import { EventBlock } from "./event-block";
 
@@ -25,6 +26,17 @@ export function MonthColumn({
 }: MonthColumnProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Resolved color per block, keyed by blockId so each DayCell can look up
+  // "what color is the multi-day block covering me?" without us threading the
+  // entire block list through.
+  const blockColorById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const b of month.blocks) {
+      m.set(b.blockId, b.resolvedColor ?? eventColorValue(b.color));
+    }
+    return m;
+  }, [month.blocks]);
   // Per-row [top, height] measured from the DOM. Multi-day overlays are
   // positioned/sized using these so wrapping cells push later rows down.
   const [rowMetrics, setRowMetrics] = useState<{ top: number; height: number }[]>([]);
@@ -79,29 +91,9 @@ export function MonthColumn({
       className="relative overflow-hidden border-r border-border"
       style={{ scrollSnapAlign: "start" }}
     >
-      {/* Day rows */}
-      <div>
-        {month.days.map((cell, i) => (
-          <div
-            key={`${month.monthIndex}-${i}`}
-            ref={(el) => {
-              rowRefs.current[i] = el;
-            }}
-          >
-            <DayCell
-              cell={cell}
-              height={dayRowHeight}
-              defaultProfileColor={defaultProfileColor}
-              onClick={onCellClick}
-              onEventClick={onBlockClick}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Multi-day overlays positioned via measured row metrics so they line
-          up with whatever real heights the day-rows ended up at. */}
-      <div className="pointer-events-none absolute inset-0">
+      {/* Multi-day overlays painted FIRST (below the day cells) so single-day
+          events sitting inside a multi-day span can punch through visually. */}
+      <div className="pointer-events-none absolute inset-0 z-0">
         {month.blocks.map((block) => {
           const startMetric = rowMetrics[block.startDayIndex];
           const endIdx = block.startDayIndex + block.rowSpan - 1;
@@ -119,6 +111,34 @@ export function MonthColumn({
             />
           );
         })}
+      </div>
+
+      {/* Day rows on top of the overlay layer. Most cells stay transparent so
+          the overlay shows through; cells with inline events render a lighter
+          backdrop in their title slot so the small event sits on top of a
+          tinted (lightened) version of the big block. */}
+      <div className="relative z-10">
+        {month.days.map((cell, i) => (
+          <div
+            key={`${month.monthIndex}-${i}`}
+            ref={(el) => {
+              rowRefs.current[i] = el;
+            }}
+          >
+            <DayCell
+              cell={cell}
+              height={dayRowHeight}
+              defaultProfileColor={defaultProfileColor}
+              coveringColor={
+                cell.coveredByBlockId
+                  ? blockColorById.get(cell.coveredByBlockId) ?? null
+                  : null
+              }
+              onClick={onCellClick}
+              onEventClick={onBlockClick}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
