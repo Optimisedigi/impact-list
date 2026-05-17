@@ -55,10 +55,35 @@ export type CategoryKey = string;
 export type StatusKey = (typeof STATUS_OPTIONS)[number]["value"];
 
 export const NAV_ITEMS = [
-  { href: "/tasks", label: "Tasks", icon: "list-checks" },
   { href: "/focus", label: "Focus", icon: "target" },
+  { href: "/tasks", label: "Tasks", icon: "list-checks" },
+  { href: "/calendar", label: "Calendar", icon: "calendar" },
+  { href: "/analytics", label: "Analytics", icon: "bar-chart-3" },
   { href: "/matrix", label: "Matrix", icon: "scatter-chart" },
   { href: "/treemap", label: "Treemap", icon: "layout-grid" },
-  { href: "/analytics", label: "Analytics", icon: "bar-chart-3" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
+
+// Pastel palette used for event cell tints in the year-grid calendar.
+// Values are OKLCH for consistency with the rest of the design system.
+export const EVENT_COLORS = [
+  { key: "peach", label: "Peach", color: "oklch(0.9 0.06 60)" },
+  { key: "blue", label: "Blue", color: "oklch(0.88 0.06 240)" },
+  { key: "yellow", label: "Yellow", color: "oklch(0.93 0.09 95)" },
+  { key: "purple", label: "Purple", color: "oklch(0.86 0.07 305)" },
+  { key: "mint", label: "Mint", color: "oklch(0.9 0.06 160)" },
+  { key: "pink", label: "Pink", color: "oklch(0.88 0.07 0)" },
+  { key: "sky", label: "Sky", color: "oklch(0.9 0.05 220)" },
+  { key: "lavender", label: "Lavender", color: "oklch(0.88 0.06 280)" },
+  { key: "sand", label: "Sand", color: "oklch(0.92 0.04 80)" },
+  { key: "coral", label: "Coral", color: "oklch(0.82 0.1 30)" },
+  { key: "gray", label: "Gray", color: "oklch(0.92 0 0)" },
+] as const;
+
+export type EventColorKey = (typeof EVENT_COLORS)[number]["key"];
+
+export function eventColorValue(key: string | null | undefined): string {
+  if (!key) return EVENT_COLORS[0].color;
+  const found = EVENT_COLORS.find((c) => c.key === key);
+  return found ? found.color : key; // allow raw color values too
+}

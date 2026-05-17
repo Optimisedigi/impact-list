@@ -8,20 +8,37 @@ import { GrowthPhasesManager } from "./components/growth-phases-manager";
 import { ClientManager } from "./components/client-manager";
 import { RecurringTasksManager } from "./components/recurring-tasks-manager";
 import { CategoryManager } from "./components/category-manager";
+import { CalendarSettingsCard } from "./components/calendar-settings-card";
 import { CsvImportDialog } from "../tasks/components/csv-import-dialog";
 import { getAllCategories } from "@/server/actions/categories";
 import { getBusinessContext } from "@/server/actions/business-context";
 import { BusinessContextForm } from "./components/business-context-form";
 import { buildCategoryOptions } from "@/lib/constants";
+import { getAccountsWithSubscriptions } from "@/server/queries/calendar-accounts";
+import { getProfiles } from "@/server/queries/calendar-profiles";
+import { getResolvedColors } from "@/server/queries/calendar-color-labels";
 
 export default async function SettingsPage() {
-  const [targets, phases, clients, recurring, dbCategories, bizContext] = await Promise.all([
+  const [
+    targets,
+    phases,
+    clients,
+    recurring,
+    dbCategories,
+    bizContext,
+    calendarAccounts,
+    calendarProfiles,
+    calendarColors,
+  ] = await Promise.all([
     db.select().from(categoryTargets),
     getAllPhases(),
     getAllClients(),
     getAllRecurringTasks(),
     getAllCategories(),
     getBusinessContext(),
+    getAccountsWithSubscriptions(),
+    getProfiles(),
+    getResolvedColors(),
   ]);
   const clientNames = clients.map((c) => c.name);
   const categoryLabels = dbCategories.map((c) => c.label);
@@ -44,6 +61,11 @@ export default async function SettingsPage() {
         <RecurringTasksManager tasks={recurring} clientOptions={clientNames} categoryOptions={categoryOptions} />
         <CategoryManager categories={categoryLabels} />
         <ClientManager clients={clientNames} />
+        <CalendarSettingsCard
+          accounts={calendarAccounts}
+          profiles={calendarProfiles}
+          resolvedColors={calendarColors}
+        />
       </div>
 
       <div className="rounded-lg bg-gray-900 p-5 text-sm text-gray-100 dark:bg-gray-950 dark:border dark:border-gray-800">

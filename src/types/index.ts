@@ -1,4 +1,4 @@
-import type { tasks, growthPhases, timeEntries, categoryTargets, clients, recurringTasks, categories, weeklyPriorities } from "@/db/schema";
+import type { tasks, growthPhases, timeEntries, categoryTargets, clients, recurringTasks, categories, weeklyPriorities, calendarEvents, calendarAccounts, calendarSubscriptions, calendarColorLabels, calendarProfiles } from "@/db/schema";
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
 export type Task = InferSelectModel<typeof tasks>;
@@ -16,3 +16,12 @@ export type NewRecurringTask = InferInsertModel<typeof recurringTasks>;
 export type Category = InferSelectModel<typeof categories>;
 export type NewCategory = InferInsertModel<typeof categories>;
 export type WeeklyPriority = InferSelectModel<typeof weeklyPriorities>;
+export type CalendarEvent = InferSelectModel<typeof calendarEvents>;
+export type NewCalendarEvent = InferInsertModel<typeof calendarEvents>;
+export type CalendarAccount = InferSelectModel<typeof calendarAccounts>;
+export type NewCalendarAccount = InferInsertModel<typeof calendarAccounts>;
+export type CalendarSubscription = InferSelectModel<typeof calendarSubscriptions>;
+export type NewCalendarSubscription = InferInsertModel<typeof calendarSubscriptions>;
+export type CalendarColorLabel = InferSelectModel<typeof calendarColorLabels>;
+export type CalendarProfile = InferSelectModel<typeof calendarProfiles>;
+export type NewCalendarProfile = InferInsertModel<typeof calendarProfiles>;

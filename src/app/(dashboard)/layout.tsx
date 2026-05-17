@@ -6,6 +6,9 @@ import { FloatingTimerWidget } from "@/components/timer/floating-timer-widget";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { WeekBanner } from "@/components/layout/week-banner";
+import { HideOnRoutes } from "@/components/layout/route-conditional";
+
+const CALENDAR_ROUTES = ["/calendar"];
 
 export default function DashboardLayout({
   children,
@@ -16,13 +19,23 @@ export default function DashboardLayout({
     <TaskTimerProvider>
       <SidebarProvider>
         <DashboardShell
-          mobileBanner={<WeekBanner />}
-          desktopBanner={<WeekBanner />}
+          mobileBanner={
+            <HideOnRoutes hideOn={CALENDAR_ROUTES}>
+              <WeekBanner />
+            </HideOnRoutes>
+          }
+          desktopBanner={
+            <HideOnRoutes hideOn={CALENDAR_ROUTES}>
+              <WeekBanner />
+            </HideOnRoutes>
+          }
         >
           {children}
         </DashboardShell>
         <FloatingTimerWidget />
-        <FloatingAddTask />
+        <HideOnRoutes hideOn={CALENDAR_ROUTES}>
+          <FloatingAddTask />
+        </HideOnRoutes>
       </SidebarProvider>
     </TaskTimerProvider>
   );

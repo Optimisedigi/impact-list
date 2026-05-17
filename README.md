@@ -111,6 +111,41 @@ For MCP servers that use stdio transport (like the ones configured in Claude Cod
 
 All you need is a URL that accepts `POST /chat/completions` with a JSON body containing `model`, `messages`, and `max_tokens`.
 
+## Calendar Integrations
+
+The `/calendar` page renders a year-grid view of events and supports two-way sync with **Google Calendar** (OAuth) and **Apple Calendar** (CalDAV / iCloud). Both are optional — without configuration, the calendar still works locally.
+
+### Required env vars
+
+```env
+# 32-byte base64 key for encrypting account secrets at rest.
+# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+CALENDAR_ENCRYPTION_KEY=
+
+# Google Calendar (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:3111/api/calendar/google/callback
+# Public HTTPS URL for push notifications. Use ngrok in dev; without it,
+# the app falls back to polling on Sync now.
+GOOGLE_WEBHOOK_URL=
+```
+
+### Google Calendar setup
+
+1. Create a project at https://console.cloud.google.com
+2. Enable the **Google Calendar API**.
+3. Create an **OAuth 2.0 Client ID** (type: Web app).
+4. Add `http://localhost:3111/api/calendar/google/callback` as an Authorized redirect URI.
+5. Copy the Client ID and Secret into `.env.local`.
+6. In the app, go to **Settings → Calendar accounts → Connect Google Calendar**.
+
+### Apple Calendar (iCloud) setup
+
+1. Go to https://appleid.apple.com → Sign-In and Security → **App-Specific Passwords**.
+2. Generate a password labeled e.g. "Impact List".
+3. In the app, go to **Settings → Calendar accounts → Connect Apple Calendar** and enter your Apple ID + the app-specific password.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, Turbopack) + React 19

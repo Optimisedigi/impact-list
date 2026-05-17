@@ -8,6 +8,7 @@ import {
   ScatterChart,
   LayoutGrid,
   BarChart3,
+  Calendar,
   Settings,
   Zap,
   PanelLeftClose,
@@ -24,15 +25,17 @@ const icons = {
   "scatter-chart": ScatterChart,
   "layout-grid": LayoutGrid,
   "bar-chart-3": BarChart3,
+  calendar: Calendar,
   settings: Settings,
 } as const;
 
 const NAV_ITEMS = [
-  { href: "/tasks", label: "Tasks", icon: "list-checks" as const },
   { href: "/focus", label: "Focus", icon: "target" as const },
+  { href: "/tasks", label: "Tasks", icon: "list-checks" as const },
+  { href: "/calendar", label: "Calendar", icon: "calendar" as const },
+  { href: "/analytics", label: "Analytics", icon: "bar-chart-3" as const },
   { href: "/matrix", label: "Matrix", icon: "scatter-chart" as const },
   { href: "/treemap", label: "Treemap", icon: "layout-grid" as const },
-  { href: "/analytics", label: "Analytics", icon: "bar-chart-3" as const },
   { href: "/settings", label: "Settings", icon: "settings" as const },
 ];
 

@@ -22,6 +22,33 @@ const weekQuotes: ((w: number) => string)[] = [
   () => "Time to cook",
 ];
 
+// Format a tenure measured in whole weeks as months + weeks.
+// One month = 4 weeks. Two weeks reads as "½ month".
+// Examples:
+//   1 week   → "1 week"
+//   3 weeks  → "3 weeks"
+//   4 weeks  → "1 month"
+//   6 weeks  → "1½ months"
+//   9 weeks  → "2 months, 1 week"
+//  10 weeks  → "2½ months"
+//  11 weeks  → "2 months, 3 weeks"
+function formatTenure(totalWeeks: number): string {
+  if (totalWeeks < 4) {
+    return `${totalWeeks} ${totalWeeks === 1 ? "week" : "weeks"}`;
+  }
+  const months = Math.floor(totalWeeks / 4);
+  const remainder = totalWeeks % 4;
+  const monthsLabel = (n: number, half: boolean) => {
+    const text = half ? `${n}½` : `${n}`;
+    const plural = n > 1 || half;
+    return `${text} ${plural ? "months" : "month"}`;
+  };
+  if (remainder === 0) return monthsLabel(months, false);
+  if (remainder === 2) return monthsLabel(months, true);
+  const weeksLabel = `${remainder} ${remainder === 1 ? "week" : "weeks"}`;
+  return `${monthsLabel(months, false)}, ${weeksLabel}`;
+}
+
 export async function WeekBanner() {
   const bizContext = await getBusinessContext();
 
@@ -36,6 +63,7 @@ export async function WeekBanner() {
     : null;
 
   if (!weekNumber || weekNumber <= 0) return null;
+  const tenureLabel = formatTenure(weekNumber);
 
   const dayOfYear = Math.floor(
     (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) /
@@ -67,7 +95,7 @@ export async function WeekBanner() {
               opacity="0.6"
             />
           </svg>
-          Week {weekNumber}
+          {tenureLabel}
         </span>
         <span className="hidden md:inline">
           {bizContext?.businessName ? ` of ${bizContext.businessName}` : ""} —{" "}

@@ -54,3 +54,15 @@ next-env.d.ts
 
 # Local DB backups
 /backups
+drizzle.turso.config.ts
+
+# Local-only scripts that reference paths outside the repo
+scripts/import-calendar-csv.mjs
+scripts/import-calendar-csv-dry.mjs
+
+# Tooling artifacts
+local-replica.db*
+local.db*
+
+# Screenshots in public
+/public/Screenshot*.png
