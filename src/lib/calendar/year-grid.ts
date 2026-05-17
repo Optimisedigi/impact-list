@@ -92,15 +92,33 @@ function eventDateRange(ev: CalendarEvent): { start: Date; end: Date } {
   return { start, end };
 }
 
+// Target timezone for grid date arithmetic. Server (Vercel) runs in UTC, so
+// without an explicit zone we'd put an event at 9am Sydney on Sept 26 onto
+// Sept 25 because its UTC ISO string is 2026-09-25T23:00:00Z. Default to
+// Australia/Sydney; can become a per-user setting later.
+const GRID_TIME_ZONE = process.env.CALENDAR_DEFAULT_TZ || "Australia/Sydney";
+
 function parseToLocalDate(iso: string): Date {
-  // Accept either YYYY-MM-DD or full ISO datetime. Use the date portion in
-  // local time to stay aligned with the user's wall-clock grid.
+  // Pure date string — use as-is.
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
     const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
     return new Date(y, m - 1, d);
   }
+  // ISO datetime — convert the instant into GRID_TIME_ZONE components so
+  // the grid shows it on the right calendar day regardless of server TZ.
   const dt = new Date(iso);
-  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: GRID_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(dt);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "0";
+  const y = Number.parseInt(part("year"), 10);
+  const m = Number.parseInt(part("month"), 10);
+  const d = Number.parseInt(part("day"), 10);
+  return new Date(y, m - 1, d);
 }
 
 function startOfDay(d: Date): Date {

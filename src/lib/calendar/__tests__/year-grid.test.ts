@@ -96,6 +96,25 @@ describe("buildYearGrid", () => {
     expect(jan.blocks[0]!.rowSpan).toBe(2);
   });
 
+  it("places an event at its Sydney calendar date even when stored as UTC", () => {
+    // 9am Sept 26 Sydney = 2025-09-25T23:00:00Z. Before the TZ fix this
+    // landed on Sept 25 because the server (UTC) read the date part naively.
+    const grid = buildYearGrid(2025, [
+      ev({
+        id: 99,
+        title: "Sydney morning meeting",
+        startsAt: "2025-09-25T23:00:00.000Z",
+        endsAt: "2025-09-26T00:00:00.000Z",
+        allDay: false,
+      }),
+    ]);
+    const sep = grid.months[8]!;
+    // Sept 26 is row index 25.
+    expect(sep.days[25]!.inlineBlocks).toHaveLength(1);
+    expect(sep.days[25]!.inlineBlocks[0]!.title).toBe("Sydney morning meeting");
+    expect(sep.days[24]!.inlineBlocks).toHaveLength(0);
+  });
+
   it("stacks multiple single-day events on the same date", () => {
     const grid = buildYearGrid(2026, [
       ev({ id: 1, title: "Morning standup", startsAt: "2026-06-13", endsAt: "2026-06-14" }),
