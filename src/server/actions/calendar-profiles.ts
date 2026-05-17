@@ -20,14 +20,22 @@ export async function createProfile(name: string, colorKey: string) {
   revalidatePath("/calendar");
 }
 
+export type ProfileKind = "personal" | "business" | null;
+
 export async function updateProfile(
   id: number,
-  data: { name?: string; colorKey?: string; visibleByDefault?: boolean },
+  data: {
+    name?: string;
+    colorKey?: string;
+    visibleByDefault?: boolean;
+    kind?: ProfileKind;
+  },
 ) {
   const patch: {
     name?: string;
     colorKey?: string;
     visibleByDefault?: boolean;
+    kind?: ProfileKind;
   } = {};
   if (data.name !== undefined) {
     const trimmed = data.name.trim();
@@ -37,6 +45,7 @@ export async function updateProfile(
   if (data.colorKey !== undefined) patch.colorKey = data.colorKey;
   if (data.visibleByDefault !== undefined)
     patch.visibleByDefault = data.visibleByDefault;
+  if (data.kind !== undefined) patch.kind = data.kind;
   if (Object.keys(patch).length === 0) return;
   await db.update(calendarProfiles).set(patch).where(eq(calendarProfiles.id, id));
   revalidatePath("/settings/calendar-profiles");

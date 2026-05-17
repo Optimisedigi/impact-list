@@ -102,10 +102,18 @@ function ProfileRow({
   const [visibleByDefault, setVisibleByDefault] = useState(
     profile.visibleByDefault,
   );
+  const [kind, setKind] = useState<"personal" | "business" | "">(
+    (profile.kind as "personal" | "business" | null) ?? "",
+  );
 
   function save() {
     startTransition(async () => {
-      await updateProfile(profile.id, { name, colorKey, visibleByDefault });
+      await updateProfile(profile.id, {
+        name,
+        colorKey,
+        visibleByDefault,
+        kind: kind === "" ? null : kind,
+      });
       onAfter();
     });
   }
@@ -152,6 +160,18 @@ function ProfileRow({
         />
         Show by default
       </label>
+      <select
+        value={kind}
+        onChange={(e) =>
+          setKind(e.target.value as "personal" | "business" | "")
+        }
+        className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+        title="Used by the external Morning Routine API to bucket events as personal or business."
+      >
+        <option value="">— Kind —</option>
+        <option value="personal">Personal</option>
+        <option value="business">Business</option>
+      </select>
       <Button
         size="sm"
         onClick={save}

@@ -188,6 +188,10 @@ export const calendarProfiles = sqliteTable("calendar_profiles", {
   visibleByDefault: integer("visible_by_default", { mode: "boolean" })
     .notNull()
     .default(true),
+  // Coarse classification for the external Morning Routine API. Profiles
+  // tagged "business" map to Work; everything else — including the default
+  // "Calendar" profile — maps to "personal".
+  kind: text("kind", { enum: ["personal", "business"] }),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
