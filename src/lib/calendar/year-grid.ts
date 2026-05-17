@@ -35,9 +35,9 @@ export interface DayCell {
   dayOfMonth: number;      // 1-31
   weekday: WeekdayShort | "";
   isPlaceholder: boolean;  // true for non-existent days (Feb 30/31, Apr 31, …)
-  // The single-day event whose title should render inline in this cell.
-  // Multi-day blocks are positioned via the overlay (see `blocks` on MonthColumn).
-  inlineBlock: EventBlock | null;
+  // Every single-day event that falls on this date. Rendered as a vertical
+  // stack of bulleted lines. Multi-day blocks render as overlays separately.
+  inlineBlocks: EventBlock[];
   // If covered by a multi-day overlay starting earlier in the month.
   coveredByBlockId: string | null;
 }
@@ -136,7 +136,7 @@ export function buildYearGrid(
           dayOfMonth: day,
           weekday: "",
           isPlaceholder: true,
-          inlineBlock: null,
+          inlineBlocks: [],
           coveredByBlockId: null,
         });
       } else {
@@ -146,7 +146,7 @@ export function buildYearGrid(
           dayOfMonth: day,
           weekday: weekdayFor(year, m, day),
           isPlaceholder: false,
-          inlineBlock: null,
+          inlineBlocks: [],
           coveredByBlockId: null,
         });
       }
@@ -199,11 +199,9 @@ export function buildYearGrid(
 
       const month = months[m]!;
       if (rowSpan === 1) {
-        const cell = month.days[startDayIndex]!;
-        // Prefer to keep the earliest inline block; later events stack underneath.
-        // For simplicity: if multiple single-day events land on the same cell,
-        // keep the first (sorted by start/id) inline and ignore overflow in v1.
-        if (!cell.inlineBlock) cell.inlineBlock = block;
+        // Stack every single-day event landing on this cell. Sort order from
+        // the outer loop (by startsAt then id) determines vertical order.
+        month.days[startDayIndex]!.inlineBlocks.push(block);
       } else {
         month.blocks.push(block);
         // Mark covered cells.

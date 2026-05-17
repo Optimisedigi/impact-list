@@ -47,7 +47,9 @@ export async function getEventsForYear(year: number): Promise<CalendarEvent[]> {
 }
 
 // Resolve each event's profile + color. Subscription profile wins over the
-// event's own color/profile; the default profile ("Other") backs everything up.
+// event's own color/profile; the default profile ("Other") backs everything
+// up. Near-duplicate events (same date, same fuzzy title) are collapsed so
+// the grid never shows the same thing twice.
 export async function getResolvedEventsForYear(
   year: number,
 ): Promise<ResolvedEvent[]> {
@@ -63,7 +65,7 @@ export async function getResolvedEventsForYear(
     subs.map((s) => [s.externalCalendarId, s] as const),
   );
 
-  return events.map((ev) => {
+  const resolved: ResolvedEvent[] = events.map((ev) => {
     let profileId: number | null = null;
     let subscriptionId: number | null = null;
     // 1. Per-event override (set explicitly via the event dialog) wins.
@@ -94,6 +96,48 @@ export async function getResolvedEventsForYear(
       resolvedSubscriptionId: subscriptionId,
     };
   });
+  return dedupeEvents(resolved);
+}
+
+// Normalize a title for fuzzy duplicate matching: lowercase, trim, collapse
+// whitespace, strip punctuation. "Team sync (weekly)!" → "team sync weekly".
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Dedupe near-identical events: same calendar date + same normalized title.
+// Common case: Google invite that's also been mirrored to a shared calendar,
+// or an Apple event synced from work + personal accounts. Display-time only —
+// the DB still holds every copy.
+export function dedupeEvents(events: ResolvedEvent[]): ResolvedEvent[] {
+  const byKey = new Map<string, ResolvedEvent>();
+  for (const ev of events) {
+    if (ev.deletedAt) continue;
+    const date = ev.startsAt.slice(0, 10);
+    const key = `${date}|${normalizeTitle(ev.title)}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, ev);
+      continue;
+    }
+    // Prefer the copy users can actually edit: local > earlier createdAt.
+    const prefer =
+      ev.source === "local" && existing.source !== "local"
+        ? ev
+        : existing.source === "local" && ev.source !== "local"
+          ? existing
+          : ev.createdAt < existing.createdAt
+            ? ev
+            : existing;
+    byKey.set(key, prefer);
+  }
+  // Preserve original ordering as best we can.
+  const kept = new Set(byKey.values());
+  return events.filter((e) => kept.has(e));
 }
 
 export async function getEventById(id: number): Promise<CalendarEvent | null> {

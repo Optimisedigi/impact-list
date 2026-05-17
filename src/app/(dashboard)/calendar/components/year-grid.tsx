@@ -35,6 +35,8 @@ export function YearGrid({
 }: YearGridProps) {
   const [dialog, setDialog] = useState<EventDialogState>({ open: false });
   const [hiddenIds, toggleProfile] = useHiddenProfiles(profiles);
+  const defaultProfileColor =
+    profiles.find((p) => p.isDefault)?.colorValue ?? null;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const monthRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -71,9 +73,9 @@ export function YearGrid({
         });
         const days = m.days.map((d) => {
           const next = { ...d };
-          if (next.inlineBlock && blockHidden(next.inlineBlock)) {
-            next.inlineBlock = null;
-          }
+          next.inlineBlocks = next.inlineBlocks.filter(
+            (b) => !blockHidden(b),
+          );
           if (
             next.coveredByBlockId &&
             removedBlockIds.has(next.coveredByBlockId)
@@ -132,6 +134,7 @@ export function YearGrid({
               year={grid.year}
               month={m}
               dayRowHeight={dayRowHeight}
+              defaultProfileColor={defaultProfileColor}
               registerRef={(el) => {
                 monthRefs.current[m.monthIndex] = el;
               }}

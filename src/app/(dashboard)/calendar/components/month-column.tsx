@@ -9,6 +9,7 @@ interface MonthColumnProps {
   year: number;
   month: MonthColumnModel;
   dayRowHeight: number;
+  defaultProfileColor?: string | null;
   registerRef?: (el: HTMLDivElement | null) => void;
   onCellClick: (date: string) => void;
   onBlockClick: (eventId: number) => void;
@@ -17,6 +18,7 @@ interface MonthColumnProps {
 export function MonthColumn({
   month,
   dayRowHeight,
+  defaultProfileColor,
   registerRef,
   onCellClick,
   onBlockClick,
@@ -89,6 +91,7 @@ export function MonthColumn({
             <DayCell
               cell={cell}
               height={dayRowHeight}
+              defaultProfileColor={defaultProfileColor}
               onClick={onCellClick}
               onEventClick={onBlockClick}
             />

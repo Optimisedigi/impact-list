@@ -49,7 +49,8 @@ describe("buildYearGrid", () => {
       ev({ id: 1, title: "Hello", startsAt: "2026-03-15", endsAt: "2026-03-16" }),
     ]);
     const march = grid.months[2]!;
-    expect(march.days[14]!.inlineBlock?.title).toBe("Hello");
+    expect(march.days[14]!.inlineBlocks).toHaveLength(1);
+    expect(march.days[14]!.inlineBlocks[0]!.title).toBe("Hello");
     expect(march.blocks).toHaveLength(0);
   });
 
@@ -95,6 +96,19 @@ describe("buildYearGrid", () => {
     expect(jan.blocks[0]!.rowSpan).toBe(2);
   });
 
+  it("stacks multiple single-day events on the same date", () => {
+    const grid = buildYearGrid(2026, [
+      ev({ id: 1, title: "Morning standup", startsAt: "2026-06-13", endsAt: "2026-06-14" }),
+      ev({ id: 2, title: "Evening dinner", startsAt: "2026-06-13", endsAt: "2026-06-14" }),
+    ]);
+    const june = grid.months[5]!;
+    expect(june.days[12]!.inlineBlocks).toHaveLength(2);
+    expect(june.days[12]!.inlineBlocks.map((b) => b.title)).toEqual([
+      "Morning standup",
+      "Evening dinner",
+    ]);
+  });
+
   it("excludes soft-deleted events", () => {
     const grid = buildYearGrid(2026, [
       ev({
@@ -105,6 +119,6 @@ describe("buildYearGrid", () => {
         deletedAt: "2026-04-30",
       }),
     ]);
-    expect(grid.months[4]!.days[0]!.inlineBlock).toBeNull();
+    expect(grid.months[4]!.days[0]!.inlineBlocks).toHaveLength(0);
   });
 });

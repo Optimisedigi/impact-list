@@ -48,7 +48,9 @@ function googleEventToRow(
   if (!startsAt || !endsAt) return null;
   return {
     title: ev.summary ?? "(no title)",
-    description: ev.description ?? null,
+    // Skip description on sync — remote descriptions are often huge meeting
+    // invites (Teams/Zoom links, dial-ins) that clutter the local copy.
+    description: null,
     location: ev.location ?? null,
     startsAt,
     endsAt,
@@ -172,7 +174,8 @@ async function syncAppleSubscription(
     try {
       await upsertExternalEvent({
         title: parsed.title,
-        description: parsed.description ?? null,
+        // Skip description on sync — same reason as Google above.
+        description: null,
         location: parsed.location ?? null,
         startsAt: parsed.startsAt,
         endsAt: parsed.endsAt,

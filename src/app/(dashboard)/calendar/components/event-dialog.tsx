@@ -68,6 +68,42 @@ function emptyForm(initialDate?: string): FormState {
   };
 }
 
+// Collapse a target's account label + calendar name when they're identical.
+function dedupeTargetLabel(t: CalendarTarget): string {
+  const parts = [t.calendarName, t.accountLabel]
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return [...new Set(parts)].join(" — ");
+}
+
+function targetDropdownLabel(t: CalendarTarget): string {
+  return `${dedupeTargetLabel(t)} (${t.provider})`;
+}
+
+// Friendly one-line label describing where this event came from. Shown under
+// the dialog title in edit mode so the user knows whether they're looking at
+// a local entry, a Google Calendar event, or an Apple/iCloud calendar event.
+function provenanceLabel(
+  source: CalendarEvent["source"] | undefined,
+  boundTarget: CalendarTarget | null,
+): string {
+  if (!source) return "";
+  if (boundTarget) {
+    const provider =
+      boundTarget.provider === "google" ? "Google Calendar" : "Apple Calendar";
+    // Account label and calendar name are often the same (Google's primary
+    // calendar is named after the account). Collapse duplicates.
+    const parts = [boundTarget.calendarName, boundTarget.accountLabel]
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const label = [...new Set(parts)].join(" — ");
+    return `From ${provider}${label ? ` — ${label}` : ""}`;
+  }
+  if (source === "google") return "From Google Calendar (calendar no longer connected)";
+  if (source === "apple") return "From Apple Calendar (calendar no longer connected)";
+  return "Manually added in Impact List";
+}
+
 function fromEvent(ev: CalendarEvent): FormState {
   const start = ev.startsAt;
   const end = ev.endsAt;
@@ -251,6 +287,7 @@ function EditEventBody({
       profiles={profiles}
       initialTargetId={initialTargetId}
       boundTarget={boundTarget ?? null}
+      source={state.event.source}
       onClose={onClose}
     />
   );
@@ -267,6 +304,9 @@ interface EventFormProps {
   // When set, the event is bound to a remote calendar whose profile dictates
   // the color. The picker is then disabled with a hint pointing to Settings.
   boundTarget?: CalendarTarget | null;
+  // Source of the event ("local" / "google" / "apple"). Used to show a
+  // provenance label so the user knows where this event came from.
+  source?: CalendarEvent["source"];
   onClose: () => void;
 }
 
@@ -279,6 +319,7 @@ function EventForm({
   profiles,
   initialTargetId,
   boundTarget = null,
+  source,
   onClose,
 }: EventFormProps) {
   const [form, setForm] = useState<FormState>(initial);
@@ -313,6 +354,9 @@ function EventForm({
     <>
       <DialogHeader>
         <DialogTitle>{mode === "edit" ? "Edit event" : "New event"}</DialogTitle>
+        {mode === "edit" && (
+          <p className="text-xs text-muted-foreground">{provenanceLabel(source, boundTarget)}</p>
+        )}
       </DialogHeader>
       <form onSubmit={handleSubmit} className="space-y-3">
         {targets.length > 0 && (
@@ -331,7 +375,7 @@ function EventForm({
               <option value="">Local only (don’t sync to a calendar)</option>
               {targets.map((t) => (
                 <option key={t.subscriptionId} value={t.subscriptionId}>
-                  {t.accountLabel} — {t.calendarName} ({t.provider})
+                  {targetDropdownLabel(t)}
                 </option>
               ))}
             </select>
@@ -449,7 +493,7 @@ function EventForm({
                 <>
                   Inherits color from{" "}
                   <span className="font-medium text-foreground">
-                    {boundTarget.accountLabel} — {boundTarget.calendarName}
+                    {dedupeTargetLabel(boundTarget)}
                   </span>
                   . Pick a profile above to override this event only.
                 </>
@@ -457,7 +501,7 @@ function EventForm({
                 <>
                   Overrides{" "}
                   <span className="font-medium text-foreground">
-                    {boundTarget.accountLabel} — {boundTarget.calendarName}
+                    {dedupeTargetLabel(boundTarget)}
                   </span>
                   .{" "}
                   <button
