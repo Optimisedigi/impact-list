@@ -5,6 +5,7 @@ import {
   getMonthBounds,
   formatDate,
   formatDateShort,
+  todayLocalISO,
 } from '@/lib/time-utils'
 
 describe('time-utils', () => {
@@ -266,6 +267,27 @@ describe('time-utils', () => {
       expect(result).toContain('Dec')
       expect(result).toContain('25')
       expect(result).not.toContain('2025')
+    })
+  })
+
+  // ── todayLocalISO ─────────────────────────────────────────
+
+  describe('todayLocalISO', () => {
+    it('returns today as YYYY-MM-DD in local time', () => {
+      // System time is Wed 2026-03-04 12:00 local (set in beforeEach)
+      expect(todayLocalISO()).toBe('2026-03-04')
+    })
+
+    it('uses the local calendar day, not UTC, near midnight', () => {
+      // Late evening local time — for users east of UTC this is already
+      // tomorrow in UTC, but the entry should still log to the local day.
+      vi.setSystemTime(new Date(2026, 2, 4, 23, 30, 0))
+      expect(todayLocalISO()).toBe('2026-03-04')
+    })
+
+    it('zero-pads month and day', () => {
+      vi.setSystemTime(new Date(2026, 0, 5, 10, 0, 0)) // Jan 5
+      expect(todayLocalISO()).toBe('2026-01-05')
     })
   })
 })

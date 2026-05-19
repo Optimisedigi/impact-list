@@ -42,3 +42,16 @@ export function formatDateShort(date: string | null | undefined): string {
     day: "numeric",
   });
 }
+
+/**
+ * Returns today's date as YYYY-MM-DD in the caller's local timezone.
+ * Using `new Date().toISOString().split("T")[0]` would return the UTC
+ * date, which can be off-by-one for users near UTC boundaries.
+ */
+export function todayLocalISO(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}

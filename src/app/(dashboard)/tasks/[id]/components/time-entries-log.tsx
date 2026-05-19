@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createTimeEntry } from "@/server/actions/time-entries";
-import { formatDateShort } from "@/lib/time-utils";
+import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { Plus } from "lucide-react";
 import type { TimeEntry } from "@/types";
 
@@ -18,7 +18,7 @@ export function TimeEntriesLog({
   const [showForm, setShowForm] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [hours, setHours] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayLocalISO());
   const [note, setNote] = useState("");
 
   function handleSubmit(e: React.FormEvent) {

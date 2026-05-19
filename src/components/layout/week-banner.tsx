@@ -74,34 +74,12 @@ export async function WeekBanner() {
   return (
     <div className="mb-0 flex min-w-0 items-center justify-end md:mb-4">
       <span className="min-w-0 truncate text-xs md:text-base font-medium text-primary md:whitespace-normal">
-        <span className="relative inline-block">
-          <svg
-            className="pointer-events-none absolute -inset-x-3.5 -top-1 -bottom-3"
-            viewBox="0 0 120 44"
-            fill="none"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <ellipse
-              cx="60"
-              cy="22"
-              rx="56"
-              ry="18"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeDasharray="4 2"
-              strokeLinecap="round"
-              transform="rotate(-2 60 22)"
-              opacity="0.6"
-            />
-          </svg>
-          {tenureLabel}
-        </span>
+        <span className="relative inline-block">{tenureLabel}</span>
         <span className="hidden md:inline">
           {bizContext?.businessName ? ` of ${bizContext.businessName}` : ""} —{" "}
         </span>
         <span className="md:hidden"> — </span>
-        {weekQuote}
+        <span className="text-black">{weekQuote}</span>
       </span>
     </div>
   );

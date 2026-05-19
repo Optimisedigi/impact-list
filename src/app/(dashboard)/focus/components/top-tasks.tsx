@@ -12,7 +12,7 @@ import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause } fro
 import { updateTaskField, reorderFocusTasks, dismissFromFocus } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
-import { formatDateShort, daysLeft } from "@/lib/time-utils";
+import { formatDateShort, daysLeft, todayLocalISO } from "@/lib/time-utils";
 import { LogHoursDialog } from "./log-hours-dialog";
 import Link from "next/link";
 import {
@@ -102,7 +102,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
       // Log user-entered hours
       const hours = parseFloat(hoursInput);
       if (!isNaN(hours) && hours > 0) {
-        await quickLogHours(task.id, hours);
+        await quickLogHours(task.id, hours, todayLocalISO());
       }
       await updateTaskField(task.id, "status", "done");
       setConfirming(false);

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
-import { formatDateShort } from "@/lib/time-utils";
+import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle } from "lucide-react";
 import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
@@ -97,7 +97,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
       }
       const hours = parseFloat(hoursInput);
       if (!isNaN(hours) && hours > 0) {
-        await quickLogHours(task.id, hours);
+        await quickLogHours(task.id, hours, todayLocalISO());
       }
       await updateTaskField(task.id, "status", "done");
       setConfirming(false);

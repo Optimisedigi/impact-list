@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useTaskTimer } from "./task-timer-context";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { updateTaskField } from "@/server/actions/tasks";
+import { todayLocalISO } from "@/lib/time-utils";
 import { Play, CheckCircle, Timer, Pause, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { useState } from "react";
 
@@ -43,9 +44,10 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
   function handleDone() {
     const hours = finishTimer(taskId);
     const roundedHours = Math.round(hours * 100) / 100;
+    const today = todayLocalISO();
     startTransition(async () => {
       if (roundedHours > 0) {
-        await quickLogHours(taskId, roundedHours);
+        await quickLogHours(taskId, roundedHours, today);
       }
       await updateTaskField(taskId, "status", "done");
       setConfirmDone(false);
@@ -55,9 +57,10 @@ function TimerRow({ taskId, taskTitle, paused }: { taskId: number; taskTitle: st
   function handleLogOnly() {
     const hours = finishTimer(taskId);
     const roundedHours = Math.round(hours * 100) / 100;
+    const today = todayLocalISO();
     startTransition(async () => {
       if (roundedHours > 0) {
-        await quickLogHours(taskId, roundedHours);
+        await quickLogHours(taskId, roundedHours, today);
       }
       setConfirmDone(false);
     });

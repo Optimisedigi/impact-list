@@ -14,7 +14,7 @@ import { updateTaskField } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "../../components/priority-badge";
-import { formatDateShort, daysLeft } from "@/lib/time-utils";
+import { formatDateShort, daysLeft, todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
 import type { CategoryOption } from "@/lib/constants";
 
@@ -54,7 +54,7 @@ export function TaskMetadataSidebar({
       setOptimistic({ status: "done" } as Partial<Task>);
       const hours = parseFloat(hoursInput);
       if (!isNaN(hours) && hours > 0) {
-        await quickLogHours(task.id, hours);
+        await quickLogHours(task.id, hours, todayLocalISO());
       }
       await updateTaskField(task.id, "status", "done");
       setMarkingDone(false);

@@ -25,7 +25,7 @@ import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
 import type { Task } from "@/types";
-import { daysLeft, formatDateShort } from "@/lib/time-utils";
+import { daysLeft, formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
@@ -229,7 +229,7 @@ export function TaskRow({
       }
       const hours = parseFloat(hoursInput);
       if (!isNaN(hours) && hours > 0) {
-        await quickLogHours(task.id, hours);
+        await quickLogHours(task.id, hours, todayLocalISO());
       }
       await updateTaskField(task.id, "status", "done");
       setMarkingDone(false);
@@ -427,7 +427,7 @@ export function TaskRow({
               const hours = prompt("Log hours:");
               if (hours) {
                 startTransition(async () => {
-                  await quickLogHours(task.id, Number(hours));
+                  await quickLogHours(task.id, Number(hours), todayLocalISO());
                 });
               }
             }}

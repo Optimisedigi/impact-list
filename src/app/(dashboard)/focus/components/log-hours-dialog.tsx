@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Clock } from "lucide-react";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
+import { todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
 
 interface LogHoursDialogProps {
@@ -42,7 +43,7 @@ export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHo
       if (hasTimer(task.id)) {
         finishTimer(task.id);
       }
-      await quickLogHours(task.id, h);
+      await quickLogHours(task.id, h, todayLocalISO());
       setOpen(false);
       setHours("");
     });

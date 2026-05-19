@@ -28,10 +28,18 @@ export async function createTimeEntry(data: {
   return result[0];
 }
 
-export async function quickLogHours(taskId: number, hours: number) {
+export async function quickLogHours(
+  taskId: number,
+  hours: number,
+  date?: string,
+) {
+  // Callers in the browser should pass the local YYYY-MM-DD via
+  // `todayLocalISO()` so the entry lands on the user's local day rather
+  // than the server's UTC day. The fallback preserves prior behaviour for
+  // any server-side callers.
   return createTimeEntry({
     taskId,
     hours,
-    date: new Date().toISOString().split("T")[0],
+    date: date ?? new Date().toISOString().split("T")[0],
   });
 }
