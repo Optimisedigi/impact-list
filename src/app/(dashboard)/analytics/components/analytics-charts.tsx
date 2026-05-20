@@ -25,9 +25,16 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
-import type { CategoryKey } from "@/lib/constants";
+import type { CategoryKey, CategoryOption } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
 // Theme-aware styles using CSS variables
@@ -360,6 +367,57 @@ function EditableText({ taskId, field, value, className }: { taskId: number; fie
   );
 }
 
+function EditableCategory({
+  taskId,
+  value,
+  categoryOptions,
+  categoryMap,
+}: {
+  taskId: number;
+  value: string;
+  categoryOptions: CategoryOption[];
+  categoryMap: Record<string, { label: string; color: string }>;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [optimisticValue, setOptimisticValue] = useState(value);
+  const current = categoryMap[optimisticValue] ?? DEFAULT_CATEGORIES[optimisticValue as CategoryKey];
+
+  function handleChange(next: string) {
+    if (next === optimisticValue) return;
+    setOptimisticValue(next);
+    startTransition(async () => {
+      await updateTaskField(taskId, "category", next);
+    });
+  }
+
+  return (
+    <Select value={optimisticValue} onValueChange={handleChange} disabled={isPending}>
+      <SelectTrigger className="h-auto w-fit gap-1 border-0 bg-transparent p-0 hover:opacity-80 focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-50">
+        <SelectValue asChild>
+          <span
+            className="inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
+            style={{ backgroundColor: current?.color ?? "var(--color-muted)" }}
+          >
+            {current?.label ?? optimisticValue}
+          </span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {categoryOptions.map((c) => (
+          <SelectItem key={c.value} value={c.value}>
+            <span
+              className="inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
+              style={{ backgroundColor: c.color }}
+            >
+              {c.label}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function EditableHours({ taskId, value }: { taskId: number; value: number | null }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -432,6 +490,8 @@ function DeleteTaskButton({ taskId }: { taskId: number }) {
 
 export function CompletedTasksList({
   data,
+  categoryOptions,
+  categoryMap,
 }: {
   data: {
     id: number;
@@ -442,6 +502,8 @@ export function CompletedTasksList({
     actualHours: number | null;
     completedDate: string;
   }[];
+  categoryOptions: CategoryOption[];
+  categoryMap: Record<string, { label: string; color: string }>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? data : data.slice(0, 5);
@@ -475,7 +537,6 @@ export function CompletedTasksList({
                       task.estimatedHours != null && task.actualHours != null
                         ? task.actualHours - task.estimatedHours
                         : null;
-                    const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
                     return (
                       <tr key={task.id} className="border-b border-border/50 last:border-0">
                         <td className="py-2 pr-4">
@@ -487,12 +548,12 @@ export function CompletedTasksList({
                           </div>
                         </td>
                         <td className="py-2 pr-4">
-                          <span
-                            className="inline-block rounded-full px-2 py-0.5 text-xs font-medium text-white"
-                            style={{ backgroundColor: cat?.color ?? "var(--color-muted)" }}
-                          >
-                            {cat?.label ?? task.category}
-                          </span>
+                          <EditableCategory
+                            taskId={task.id}
+                            value={task.category}
+                            categoryOptions={categoryOptions}
+                            categoryMap={categoryMap}
+                          />
                         </td>
                         <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">
                           {task.estimatedHours != null ? `${task.estimatedHours}h` : "-"}

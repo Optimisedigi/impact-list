@@ -3,6 +3,8 @@ import { categoryTargets } from "@/db/schema";
 import { getTimeAllocationByPeriod } from "@/server/queries/analytics";
 import { getActivePhase } from "@/server/queries/growth-phases";
 import { getBusinessContext } from "@/server/actions/business-context";
+import { getAllCategories } from "@/server/actions/categories";
+import { buildCategoryMap, buildCategoryOptions } from "@/lib/constants";
 import {
   getWeeklyAllocationTrend,
   getCompletionsByDay,
@@ -25,7 +27,7 @@ export default async function AnalyticsPage() {
   const bizContext = await getBusinessContext();
   const startDate = bizContext?.startDate || null;
 
-  const [targets, weeklyTrend, completions, categoryPct, leverageTrend, monthAllocation, phase, completedTasks] =
+  const [targets, weeklyTrend, completions, categoryPct, leverageTrend, monthAllocation, phase, completedTasks, dbCategories] =
     await Promise.all([
       db.select().from(categoryTargets),
       getWeeklyAllocationTrend(undefined, startDate),
@@ -35,7 +37,10 @@ export default async function AnalyticsPage() {
       getTimeAllocationByPeriod("this_month"),
       getActivePhase(),
       getRecentlyCompletedTasks(),
+      getAllCategories(),
     ]);
+  const categoryMap = buildCategoryMap(dbCategories);
+  const categoryOptions = buildCategoryOptions(dbCategories);
 
   const burndown = phase ? await getPhaseBurndown(phase.id) : [];
 
@@ -60,7 +65,11 @@ export default async function AnalyticsPage() {
         <LeverageTrendChart data={leverageTrend} />
       </div>
 
-      <CompletedTasksList data={completedTasks} />
+      <CompletedTasksList
+        data={completedTasks}
+        categoryOptions={categoryOptions}
+        categoryMap={categoryMap}
+      />
     </div>
   );
 }
