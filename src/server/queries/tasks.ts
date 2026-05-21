@@ -44,7 +44,8 @@ export async function getTasksByFilter(filters: {
     ? db.select().from(tasks).where(and(...conditions))
     : db.select().from(tasks);
 
-  return query.orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore));
+  // Newest first: higher sortOrder = more recently created (see createTask in server/actions/tasks.ts)
+  return query.orderBy(desc(tasks.sortOrder), desc(tasks.leverageScore));
 }
 
 export async function getScoredTaskSummaries() {

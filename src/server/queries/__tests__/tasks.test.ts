@@ -166,10 +166,10 @@ describe('tasks queries', () => {
       expect(like).toHaveBeenCalledWith(tasks.title, '%report%')
     })
 
-    it('orders results by sortOrder asc then leverageScore desc', async () => {
+    it('orders results by sortOrder desc (newest first) then leverageScore desc', async () => {
       await getTasksByFilter({})
 
-      expect(asc).toHaveBeenCalledWith(tasks.sortOrder)
+      expect(desc).toHaveBeenCalledWith(tasks.sortOrder)
       expect(desc).toHaveBeenCalledWith(tasks.leverageScore)
     })
   })
