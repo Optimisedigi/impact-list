@@ -26,7 +26,7 @@ import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
 import type { Task } from "@/types";
 import { daysLeft, formatDateShort, todayLocalISO } from "@/lib/time-utils";
-import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink } from "lucide-react";
+import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink, Check, FileText } from "lucide-react";
 import Link from "next/link";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import type { CopiedCell } from "./task-table";
@@ -273,10 +273,11 @@ export function TaskRow({
   }
 
   return (
-    <TableRow
-      data-task-id={task.id}
-      className={`group/row ${isPending ? "opacity-60" : ""} ${overdue ? "bg-red-500/5" : ""} ${selected ? "bg-primary/5" : ""} ${isHighlighted ? "animate-highlight-pulse" : ""} [&>td]:align-middle`}
-    >
+    <>
+      <TableRow
+        data-task-id={task.id}
+        className={`group/row hidden md:table-row ${isPending ? "opacity-60" : ""} ${overdue ? "bg-red-500/5" : ""} ${selected ? "bg-primary/5" : ""} ${isHighlighted ? "animate-highlight-pulse" : ""} [&>td]:align-middle`}
+      >
       <TableCell className="w-10">
         <div
           onClick={(e) => {
@@ -481,6 +482,131 @@ export function TaskRow({
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
-    </TableRow>
+      </TableRow>
+      <TableRow
+        data-task-id={task.id}
+        className={`md:hidden ${isPending ? "opacity-60" : ""} ${overdue ? "bg-red-500/5" : ""} ${selected ? "bg-primary/5" : ""} ${isHighlighted ? "animate-highlight-pulse" : ""}`}
+      >
+        <TableCell colSpan={12} className="p-3">
+          <div className="flex items-start gap-3">
+            <div
+              className="pt-0.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(!selected, e.shiftKey);
+              }}
+            >
+              <Checkbox
+                checked={selected}
+                onCheckedChange={() => {/* handled by parent onClick */}}
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-start gap-2">
+                <Link href={`/tasks/${task.id}`} className="min-w-0 flex-1 text-sm font-medium leading-tight hover:underline">
+                  {optimisticTask.title}
+                </Link>
+                {optimisticTask.recurringTaskId && (
+                  <Repeat className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <CategoryBadge category={optimisticTask.category} categoryMap={categoryMap} />
+                <StatusBadge status={optimisticTask.status} />
+                <LeverageBadge score={optimisticTask.leverageScore} />
+                {optimisticTask.deadline && (
+                  <button
+                    type="button"
+                    className={`rounded px-1 text-xs ${overdue ? "text-red-400" : "text-muted-foreground"}`}
+                    onClick={() => saveField("deadline", optimisticTask.deadline)}
+                    title="Deadline"
+                  >
+                    {formatDateShort(optimisticTask.deadline)}
+                  </button>
+                )}
+              </div>
+              {(optimisticTask.toComplete || optimisticTask.client) && (
+                <p className="text-xs text-muted-foreground">
+                  {optimisticTask.toComplete ? `Next: ${optimisticTask.toComplete}` : null}
+                  {optimisticTask.toComplete && optimisticTask.client ? " · " : null}
+                  {optimisticTask.client ?? null}
+                </p>
+              )}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" title="Task actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/tasks/${task.id}`}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Notes
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (timerActive) {
+                      pauseTimer(task.id);
+                    } else {
+                      startTimer(task.id, optimisticTask.title);
+                    }
+                  }}
+                >
+                  {timerActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                  {timerActive ? "Pause timer" : timerPaused ? "Resume timer" : "Start timer"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const hours = prompt("Log hours:");
+                    if (hours) {
+                      startTransition(async () => {
+                        await quickLogHours(task.id, Number(hours), todayLocalISO());
+                      });
+                    }
+                  }}
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Log hours
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => saveField("status", "done")}>
+                  <Check className="mr-2 h-4 w-4" />
+                  Mark as done
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCopyCell({ field: "category", value: optimisticTask.category })}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Category
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCopyCell({ field: "status", value: optimisticTask.status })}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Status
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCopyCell({ field: "client", value: optimisticTask.client })}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Client
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onCopyCell({ field: "toComplete", value: optimisticTask.toComplete })}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy To Complete
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => {
+                    if (confirm("Delete this task?")) {
+                      startTransition(() => deleteTask(task.id));
+                    }
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      </TableRow>
+    </>
   );
 }

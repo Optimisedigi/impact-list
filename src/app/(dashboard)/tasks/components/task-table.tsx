@@ -257,13 +257,13 @@ export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, 
         </div>
       )}
       <div className="rounded-lg border overflow-auto flex-1 min-h-0">
-        <Table style={{ width: `${totalWidth}px`, tableLayout: "fixed" }}>
+        <Table className="min-w-full md:min-w-0" style={{ width: `max(100%, ${totalWidth}px)`, tableLayout: "fixed" }}>
           <TableHeader>
             <TableRow>
               {defaultColumns.map((col, i) => (
                 <TableHead
                   key={col.key}
-                  className="sticky top-0 z-20 bg-background relative text-xs whitespace-nowrap border-b"
+                  className="sticky top-0 z-20 hidden bg-background relative text-xs whitespace-nowrap border-b md:table-cell"
                   style={{ width: `${widths[i]}px` }}
                 >
                   {col.key === "select" ? (

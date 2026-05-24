@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
-import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause } from "lucide-react";
+import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause, MoreHorizontal } from "lucide-react";
 import { updateTaskField, reorderFocusTasks, dismissFromFocus } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
@@ -20,6 +20,12 @@ import {
   type DraggableAttributes,
   type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   SortableContext,
   useSortable,
@@ -253,7 +259,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   Next: {task.toComplete}
                 </p>
               )}
-              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 ml-auto">
+              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 ml-auto md:flex md:opacity-0 md:group-hover:opacity-100">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -291,6 +297,49 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   <Check className="h-3 w-3" />
                 </Button>
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-2 h-7 w-7 shrink-0 text-muted-foreground md:hidden"
+                    title="Task actions"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (isRunning(task.id)) {
+                        pauseTimer(task.id);
+                      } else {
+                        startTimer(task.id, task.title);
+                      }
+                    }}
+                  >
+                    {isRunning(task.id) ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                    {isRunning(task.id) ? "Pause timer" : hasTimer(task.id) ? "Resume timer" : "Start timer"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/tasks/${task.id}`}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Notes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <LogHoursDialog task={task} variant="button" className="h-7 w-full justify-start px-0" />
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={startConfirm}>
+                    <Check className="mr-2 h-4 w-4" />
+                    Mark as done
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDismiss} disabled={isPending} className="text-destructive">
+                    <X className="mr-2 h-4 w-4" />
+                    Remove from focus
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </CardContent>
