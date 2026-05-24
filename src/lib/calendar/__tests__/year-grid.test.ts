@@ -115,6 +115,24 @@ describe("buildYearGrid", () => {
     expect(sep.days[24]!.inlineBlocks).toHaveLength(0);
   });
 
+  it("keeps timezone-less local timed events on their literal calendar date", () => {
+    const grid = buildYearGrid(2026, [
+      ev({
+        id: 100,
+        title: "4pm appointment",
+        startsAt: "2026-08-23T16:00:00",
+        endsAt: "2026-08-23T17:00:00",
+        allDay: false,
+      }),
+    ]);
+    const aug = grid.months[7]!;
+    expect(aug.days[22]!.weekday).toBe("Sun");
+    expect(aug.days[22]!.inlineBlocks).toHaveLength(1);
+    expect(aug.days[22]!.inlineBlocks[0]!.title).toBe("4pm appointment");
+    expect(aug.days[23]!.weekday).toBe("Mon");
+    expect(aug.days[23]!.inlineBlocks).toHaveLength(0);
+  });
+
   it("stacks multiple single-day events on the same date", () => {
     const grid = buildYearGrid(2026, [
       ev({ id: 1, title: "Morning standup", startsAt: "2026-06-13", endsAt: "2026-06-14" }),

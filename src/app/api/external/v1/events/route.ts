@@ -106,6 +106,25 @@ function profileKind(kind: string | null): "personal" | "business" {
   return kind === "business" ? "business" : "personal";
 }
 
+// Events are stored as Sydney wall-clock time treated as UTC (no offset).
+// This converts an arbitrary ISO instant to that same naive-UTC format so
+// DB comparisons work correctly regardless of the caller's timezone offset.
+function toNaiveUTC(dt: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: DEFAULT_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(dt);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  const h = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")}T${h}:${get("minute")}:${get("second")}.000Z`;
+}
+
 export async function GET(req: NextRequest) {
   const expectedToken = process.env.CALENDAR_API_TOKEN;
   if (!expectedToken) {
@@ -139,20 +158,31 @@ export async function GET(req: NextRequest) {
     return badRequest("'profile' must be either 'personal' or 'business'");
   }
 
-  // Pull events overlapping the range.
-  const fromISO = fromDate.toISOString();
-  const toISO = toDate.toISOString();
-  const rawEvents: CalendarEvent[] = await db
+  // Events are stored with timezone offsets (e.g. "2026-05-18T14:00:00+10:00").
+  // SQLite string comparisons between mixed formats (Z vs +10:00) are unreliable,
+  // so we fetch a wide ±1 day window from the DB and filter precisely in JS
+  // using proper Date objects (UTC instants).
+  const fromPadded = new Date(fromDate.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const toPadded = new Date(toDate.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const allEvents: CalendarEvent[] = await db
     .select()
     .from(calendarEvents)
     .where(
       and(
         isNull(calendarEvents.deletedAt),
-        lte(calendarEvents.startsAt, toISO),
-        gte(calendarEvents.endsAt, fromISO),
+        gte(calendarEvents.startsAt, `${fromPadded}T00:00:00`),
+        lte(calendarEvents.startsAt, `${toPadded}T23:59:59`),
       ),
     )
     .orderBy(asc(calendarEvents.startsAt), asc(calendarEvents.id));
+
+  // Filter by START date only — an event belongs to the day it starts.
+  // Using overlap logic causes all-day and multi-day events to bleed into
+  // the following day (since their endsAt is midnight of the next day).
+  const rawEvents = allEvents.filter((ev) => {
+    const evStart = new Date(ev.startsAt);
+    return evStart >= fromDate && evStart < toDate;
+  });
 
   // Index profiles + subscriptions so we can resolve calendar / kind labels.
   const [profiles, subs, defaultProfile] = await Promise.all([

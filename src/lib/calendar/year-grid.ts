@@ -99,13 +99,17 @@ function eventDateRange(ev: CalendarEvent): { start: Date; end: Date } {
 const GRID_TIME_ZONE = process.env.CALENDAR_DEFAULT_TZ || "Australia/Sydney";
 
 function parseToLocalDate(iso: string): Date {
-  // Pure date string — use as-is.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-    const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
-    return new Date(y, m - 1, d);
+  // Date-only and timezone-less datetimes are stored as wall-clock calendar
+  // values. Use their literal date parts; parsing them as JS Dates applies the
+  // server/browser timezone and can shift a late-evening event into tomorrow.
+  const local = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?)?$/.exec(iso);
+  if (local) {
+    const [, y, m, d] = local;
+    return new Date(Number(y), Number(m) - 1, Number(d));
   }
-  // ISO datetime — convert the instant into GRID_TIME_ZONE components so
-  // the grid shows it on the right calendar day regardless of server TZ.
+  // Offset/UTC datetimes represent instants from remote calendars — convert the
+  // instant into GRID_TIME_ZONE components so the grid shows it on the right
+  // calendar day regardless of server TZ.
   const dt = new Date(iso);
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: GRID_TIME_ZONE,
