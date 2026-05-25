@@ -48,6 +48,44 @@ describe("VEVENT round-trip", () => {
     expect(parseVevent("not an ical")).toEqual([]);
   });
 
+  // Regression: naive datetimes are stored as Sydney wall-clock. Using
+  // `new Date(iso)` would parse them in the server's TZ (UTC in prod),
+  // shifting Sun 23 Aug 16:00 to Mon 24 Aug 02:00 in Apple Calendar.
+  it("serializes a naive Sydney datetime to the correct UTC instant", () => {
+    const originalTZ = process.env.TZ;
+    process.env.TZ = "UTC";
+    try {
+      const ics = serializeVevent({
+        uid: "tz-test@local",
+        title: "Sun 4pm Sydney",
+        description: null,
+        location: null,
+        startsAt: "2026-08-23T16:00:00",
+        endsAt: "2026-08-23T17:00:00",
+        allDay: false,
+      });
+      // August in Sydney = AEST (UTC+10), no DST. 16:00 → 06:00Z.
+      expect(ics).toContain("DTSTART:20260823T060000Z");
+      expect(ics).toContain("DTEND:20260823T070000Z");
+    } finally {
+      process.env.TZ = originalTZ;
+    }
+  });
+
+  it("does not duplicate the VALUE=DATE parameter on all-day events", () => {
+    const ics = serializeVevent({
+      uid: "allday-param@local",
+      title: "All-day",
+      description: null,
+      location: null,
+      startsAt: "2026-08-23",
+      endsAt: "2026-08-24",
+      allDay: true,
+    });
+    expect(ics).not.toMatch(/VALUE=DATE;VALUE=DATE/);
+    expect(ics).toContain("DTSTART;VALUE=DATE:20260823");
+  });
+
   it("expands a yearly recurring event within a window", () => {
     const ics = [
       "BEGIN:VCALENDAR",

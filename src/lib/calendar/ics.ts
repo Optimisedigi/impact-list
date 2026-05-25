@@ -160,6 +160,53 @@ export interface SerializeVeventInput {
   allDay: boolean;
 }
 
+// Timezone for naive stored datetimes. Timed events are persisted as
+// wall-clock in this zone with no offset (e.g. "2026-08-23T16:00:00"),
+// so we must interpret them here — `new Date(iso)` would use the server's
+// TZ (UTC in prod) and shift the event by ±10h.
+const STORED_TZ = process.env.CALENDAR_DEFAULT_TZ || "Australia/Sydney";
+
+// Parse a stored datetime string into the UTC instant it represents.
+// Strings with an explicit `Z` or numeric offset are parsed as-is; naive
+// strings are treated as wall-clock in STORED_TZ.
+function parseStoredInstant(iso: string): Date {
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(iso)) return new Date(iso);
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(iso);
+  if (!m) return new Date(iso);
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const h = Number(m[4]);
+  const mi = Number(m[5]);
+  const s = m[6] ? Number(m[6]) : 0;
+  // Pretend the components are UTC, then ask Intl what STORED_TZ wall-clock
+  // that instant corresponds to. The diff is the zone's UTC offset (correctly
+  // handling DST), which we subtract to recover the true UTC instant.
+  const naiveUTC = Date.UTC(y, mo - 1, d, h, mi, s);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STORED_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(naiveUTC));
+  const get = (t: string) =>
+    Number(parts.find((p) => p.type === t)?.value ?? "0");
+  const zh = get("hour") === 24 ? 0 : get("hour");
+  const zonedAsUTC = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    zh,
+    get("minute"),
+    get("second"),
+  );
+  return new Date(naiveUTC - (zonedAsUTC - naiveUTC));
+}
+
 // Build a minimal VCALENDAR / VEVENT string for CalDAV PUTs.
 export function serializeVevent(ev: SerializeVeventInput): string {
   const cal = new ICAL.Component(["vcalendar", [], []]);
@@ -174,20 +221,19 @@ export function serializeVevent(ev: SerializeVeventInput): string {
   vevent.updatePropertyWithValue("dtstamp", ICAL.Time.now());
 
   if (ev.allDay) {
-    const start = ICAL.Time.fromDateString(ev.startsAt);
-    const end = ICAL.Time.fromDateString(ev.endsAt);
-    const dtstart = vevent.updatePropertyWithValue("dtstart", start);
-    dtstart.setParameter("value", "DATE");
-    const dtend = vevent.updatePropertyWithValue("dtend", end);
-    dtend.setParameter("value", "DATE");
+    // ICAL.Time.fromDateString returns a Time with isDate=true, which
+    // already causes the serializer to emit `VALUE=DATE` — no need to
+    // setParameter explicitly (doing so produces a duplicated parameter).
+    vevent.updatePropertyWithValue("dtstart", ICAL.Time.fromDateString(ev.startsAt));
+    vevent.updatePropertyWithValue("dtend", ICAL.Time.fromDateString(ev.endsAt));
   } else {
     vevent.updatePropertyWithValue(
       "dtstart",
-      ICAL.Time.fromJSDate(new Date(ev.startsAt), true),
+      ICAL.Time.fromJSDate(parseStoredInstant(ev.startsAt), true),
     );
     vevent.updatePropertyWithValue(
       "dtend",
-      ICAL.Time.fromJSDate(new Date(ev.endsAt), true),
+      ICAL.Time.fromJSDate(parseStoredInstant(ev.endsAt), true),
     );
   }
 
