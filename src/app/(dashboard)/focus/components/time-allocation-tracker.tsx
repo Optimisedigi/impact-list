@@ -10,6 +10,17 @@ import type { CategoryTarget } from "@/types";
 type AllocationData = { category: string; totalHours: number }[];
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all_time";
 
+function getStatusColor(actual: number, target: number): string {
+  if (target === 0) return "text-muted-foreground";
+  const ratio = actual / target;
+  // Green: within ±20% of target (0.8–1.2)
+  if (ratio >= 0.8 && ratio <= 1.2) return "text-green-600";
+  // Amber: within ±50% of target (0.5–2.0)
+  if (ratio >= 0.5 && ratio <= 2.0) return "text-amber-500";
+  // Red: way off target (under or over)
+  return "text-red-500";
+}
+
 export function TimeAllocationTracker({
   initialData,
   targets,
@@ -66,8 +77,8 @@ export function TimeAllocationTracker({
               <div key={key}>
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-xs">
                   <span className="break-words min-w-0" style={{ color: cat.color }}>{cat.label}</span>
-                  <span className="text-muted-foreground tabular-nums whitespace-nowrap">
-                    {hours.toFixed(1)}h ({actual.toFixed(0)}%) / target {target}%
+                  <span className="tabular-nums whitespace-nowrap">
+                    {hours.toFixed(1)}h (<span className={getStatusColor(actual, target)}>{actual.toFixed(0)}%</span>) / target {target}%
                   </span>
                 </div>
                 <div className="relative h-2 rounded-full bg-muted">
@@ -85,7 +96,9 @@ export function TimeAllocationTracker({
           })
         )}
         {totalHours > 0 && (
-          <p className="text-xs text-muted-foreground text-right">{totalHours.toFixed(1)}h total</p>
+          <p className="text-xs text-muted-foreground text-right">
+            {totalHours.toFixed(1)}h total — {(totalHours / 8).toFixed(1)}d (8h/day)
+          </p>
         )}
       </CardContent>
     </Card>
