@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -12,21 +13,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { TaskRow } from "./task-row";
 import { deleteTasks, duplicateTasks, bulkUpdateField } from "@/server/actions/tasks";
-import { Trash2, Copy, Clipboard } from "lucide-react";
+import { Trash2, Copy, Clipboard, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import type { Task } from "@/types";
+import { cn } from "@/lib/utils";
 
-const defaultColumns = [
+type SortOrder = "asc" | "desc";
+
+const defaultColumns: { key: string; label: string; defaultWidth: number; sortable?: boolean }[] = [
   { key: "select", label: "", defaultWidth: 40 },
-  { key: "title", label: "Task", defaultWidth: 300 },
-  { key: "category", label: "Category", defaultWidth: 200 },
-  { key: "status", label: "Status", defaultWidth: 140 },
-  { key: "toComplete", label: "To Complete", defaultWidth: 130 },
-  { key: "client", label: "Client", defaultWidth: 120 },
-  { key: "deadline", label: "Deadline", defaultWidth: 120 },
-  { key: "estimatedHours", label: "Est. Hrs", defaultWidth: 70 },
-  { key: "actualHours", label: "Actual", defaultWidth: 70 },
-  { key: "leverageScore", label: "Leverage", defaultWidth: 70 },
-  { key: "priorityScore", label: "Priority", defaultWidth: 70 },
+  { key: "title", label: "Task", defaultWidth: 300, sortable: true },
+  { key: "category", label: "Category", defaultWidth: 200, sortable: true },
+  { key: "status", label: "Status", defaultWidth: 140, sortable: true },
+  { key: "toComplete", label: "To Complete", defaultWidth: 130, sortable: true },
+  { key: "client", label: "Client", defaultWidth: 120, sortable: true },
+  { key: "deadline", label: "Deadline", defaultWidth: 120, sortable: true },
+  { key: "estimatedHours", label: "Est. Hrs", defaultWidth: 70, sortable: true },
+  { key: "actualHours", label: "Actual", defaultWidth: 70, sortable: true },
+  { key: "leverageScore", label: "Leverage", defaultWidth: 70, sortable: true },
+  { key: "priorityScore", label: "Priority", defaultWidth: 70, sortable: true },
   { key: "actions", label: "", defaultWidth: 40 },
 ];
 
@@ -36,6 +40,7 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       startX.current = e.clientX;
 
       const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -62,7 +67,8 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60"
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 z-10"
     />
   );
 }
@@ -71,7 +77,8 @@ import type { CategoryOption } from "@/lib/constants";
 
 export type CopiedCell = { field: string; value: string | number | null };
 
-export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, highlightId }: { tasks: Task[]; clientOptions: string[]; categoryMap: Record<string, { label: string; color: string }>; categoryOptions: CategoryOption[]; highlightId?: number }) {
+export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, highlightId, currentSort, currentOrder }: { tasks: Task[]; clientOptions: string[]; categoryMap: Record<string, { label: string; color: string }>; categoryOptions: CategoryOption[]; highlightId?: number; currentSort?: string; currentOrder?: SortOrder }) {
+  const router = useRouter();
   const [widths, setWidths] = useState(() =>
     defaultColumns.map((c) => c.defaultWidth)
   );
@@ -177,6 +184,27 @@ export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, 
     });
   }
 
+  // Toggle a column's sort state. Cycle: unsorted → asc → desc → unsorted.
+  // We rewrite the whole URL so the server query re-runs with the new ordering
+  // and any existing filters/search/highlight are preserved.
+  function toggleSort(columnKey: string) {
+    const params = new URLSearchParams(window.location.search);
+    if (currentSort === columnKey) {
+      if (currentOrder === "asc") {
+        params.set("sort", columnKey);
+        params.set("order", "desc");
+      } else {
+        // Currently desc — clicking again clears the sort and returns to default.
+        params.delete("sort");
+        params.delete("order");
+      }
+    } else {
+      params.set("sort", columnKey);
+      params.set("order", "asc");
+    }
+    router.replace(`${window.location.pathname}?${params.toString()}`);
+  }
+
   if (tasks.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
@@ -260,25 +288,49 @@ export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, 
         <Table className="min-w-full md:min-w-0" style={{ width: `max(100%, ${totalWidth}px)`, tableLayout: "fixed" }}>
           <TableHeader>
             <TableRow>
-              {defaultColumns.map((col, i) => (
-                <TableHead
-                  key={col.key}
-                  className="sticky top-0 z-20 hidden bg-background relative text-xs whitespace-nowrap border-b md:table-cell"
-                  style={{ width: `${widths[i]}px` }}
-                >
-                  {col.key === "select" ? (
-                    <Checkbox
-                      checked={allSelected}
-                      onCheckedChange={(checked) => toggleAll(!!checked)}
-                    />
-                  ) : (
-                    col.label
-                  )}
-                  {col.key !== "actions" && col.key !== "select" && (
-                    <ResizeHandle onResize={(delta) => handleResize(i, delta)} />
-                  )}
-                </TableHead>
-              ))}
+              {defaultColumns.map((col, i) => {
+                const isActiveSort = col.sortable && currentSort === col.key;
+                const sortIcon = isActiveSort
+                  ? currentOrder === "asc"
+                    ? <ChevronUp className="h-3 w-3" />
+                    : <ChevronDown className="h-3 w-3" />
+                  : <ArrowUpDown className="h-3 w-3 opacity-30 group-hover:opacity-70" />;
+                return (
+                  <TableHead
+                    key={col.key}
+                    aria-sort={col.sortable && isActiveSort ? (currentOrder === "asc" ? "ascending" : "descending") : undefined}
+                    className="sticky top-0 z-20 hidden bg-background relative text-xs whitespace-nowrap border-b md:table-cell p-0"
+                    style={{ width: `${widths[i]}px` }}
+                  >
+                    {col.key === "select" ? (
+                      <div className="px-2 py-2.5">
+                        <Checkbox
+                          checked={allSelected}
+                          onCheckedChange={(checked) => toggleAll(!!checked)}
+                        />
+                      </div>
+                    ) : col.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className={cn(
+                          "group flex w-full items-center gap-1 px-2 py-2.5 text-left font-medium hover:bg-muted/60 transition-colors",
+                          isActiveSort && "text-foreground",
+                          !isActiveSort && "text-muted-foreground"
+                        )}
+                      >
+                        <span>{col.label}</span>
+                        {sortIcon}
+                      </button>
+                    ) : (
+                      <div className="px-2 py-2.5 text-muted-foreground">{col.label}</div>
+                    )}
+                    {col.key !== "actions" && col.key !== "select" && (
+                      <ResizeHandle onResize={(delta) => handleResize(i, delta)} />
+                    )}
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>

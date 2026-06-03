@@ -12,9 +12,11 @@ import { HowItWorksDialog } from "./components/how-it-works-dialog";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; category?: string; client?: string; search?: string; highlight?: string }>;
+  searchParams: Promise<{ status?: string; category?: string; client?: string; search?: string; highlight?: string; sort?: string; order?: string }>;
 }) {
   const params = await searchParams;
+  // Normalize order to "asc" | "desc" so the table UI doesn't need to handle garbage.
+  const sortOrder = params.order === "asc" ? "asc" : "desc";
   // Auto-generate any due recurring tasks in parallel with data fetching
   const [tasks, clients, managedClients, dbCategories] = await Promise.all([
     getTasksByFilter(params),
@@ -48,7 +50,15 @@ export default async function TasksPage({
         <TaskFilters clients={clientNames} categoryOptions={categoryOptions} initialFilters={params} />
       </div>
       <div className="min-h-0 flex-1 flex flex-col">
-        <TaskTable tasks={tasks} clientOptions={clientNames} categoryMap={categoryMap} categoryOptions={categoryOptions} highlightId={params.highlight ? Number(params.highlight) : undefined} />
+        <TaskTable
+          tasks={tasks}
+          clientOptions={clientNames}
+          categoryMap={categoryMap}
+          categoryOptions={categoryOptions}
+          highlightId={params.highlight ? Number(params.highlight) : undefined}
+          currentSort={params.sort}
+          currentOrder={sortOrder}
+        />
       </div>
     </div>
   );
