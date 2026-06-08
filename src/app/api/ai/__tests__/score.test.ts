@@ -3,11 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock db update chain
 const mockUpdateWhere = vi.fn()
 const mockUpdateSet = vi.fn(() => ({ where: mockUpdateWhere }))
-const mockUpdate = vi.fn(() => ({ set: mockUpdateSet }))
+const mockUpdate = vi.fn((table: unknown) => {
+  void table
+  return { set: mockUpdateSet }
+})
 
 vi.mock('@/db', () => ({
   db: {
-    update: (...args: unknown[]) => mockUpdate(...args),
+    update: (table: unknown) => mockUpdate(table),
   },
 }))
 
@@ -53,6 +56,10 @@ import { tasks } from '@/db/schema'
 
 // Helper to set env var
 function setApiKey(key: string | undefined) {
+  delete process.env.MINIMAX_API_KEY
+  delete process.env.AI_PROVIDER
+  delete process.env.AI_BASE_URL
+  delete process.env.AI_MODEL
   if (key === undefined) {
     delete process.env.ANTHROPIC_API_KEY
   } else {
@@ -129,7 +136,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('ANTHROPIC_API_KEY not configured')
+      expect(data.error).toContain('AI provider not configured')
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is empty string', async () => {
@@ -139,7 +146,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('ANTHROPIC_API_KEY not configured')
+      expect(data.error).toContain('AI provider not configured')
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is "your-key-here"', async () => {
@@ -149,7 +156,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('ANTHROPIC_API_KEY not configured')
+      expect(data.error).toContain('AI provider not configured')
     })
   })
 
@@ -212,6 +219,49 @@ describe('AI Score API Route - POST', () => {
       expect(body.model).toBe('claude-haiku-4-5-20251001')
       expect(body.max_tokens).toBe(4096)
       expect(body.messages[0].role).toBe('user')
+    })
+
+    it('uses MiniMax when MINIMAX_API_KEY is set', async () => {
+      delete process.env.ANTHROPIC_API_KEY
+      process.env.MINIMAX_API_KEY = 'minimax-valid-key'
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                scores: [
+                  { taskId: 1, priorityScore: 8, leverageScore: 9, sequenceReason: 'High impact' },
+                  { taskId: 2, priorityScore: 6, leverageScore: 7, sequenceReason: 'Enables automation' },
+                ],
+              }),
+            },
+          }],
+        }),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      const response = await POST()
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.success).toBe(true)
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.minimax.io/v1/chat/completions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer minimax-valid-key',
+          }),
+        })
+      )
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(body.model).toBe('MiniMax-M3')
+      expect(body.max_tokens).toBe(4096)
+      expect(body.thinking).toEqual({ type: 'disabled' })
     })
 
     it('updates each task with scores from the API response', async () => {
@@ -306,7 +356,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('Claude API error: 429')
+      expect(data.error).toContain('Anthropic API error: 429')
       expect(data.error).toContain('Rate limited')
     })
 
@@ -320,7 +370,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('No response from Claude')
+      expect(data.error).toBe('No response from Anthropic')
     })
 
     it('returns 500 when the response text contains no JSON', async () => {
@@ -364,7 +414,7 @@ describe('AI Score API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('No response from Claude')
+      expect(data.error).toBe('No response from Anthropic')
     })
   })
 })

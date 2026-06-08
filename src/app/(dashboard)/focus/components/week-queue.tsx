@@ -8,7 +8,7 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
-import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock } from "lucide-react";
 import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
@@ -66,13 +66,15 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
   );
+  const submittedDeadlineRef = useRef(task.deadline ?? null);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
 
   function handleDeadlineChange(value: string) {
     setEditingDeadline(false);
     const newDeadline = value || null;
-    if (newDeadline === task.deadline) return;
+    if (newDeadline === submittedDeadlineRef.current) return;
+    submittedDeadlineRef.current = newDeadline;
     startTransition(async () => {
       setOptimisticTask({ deadline: newDeadline } as Partial<Task>);
       await updateTaskField(task.id, "deadline", newDeadline);
@@ -173,21 +175,23 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
             autoFocus
             defaultValue={optimisticTask.deadline ?? ""}
             className="text-xs rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+            onChange={(e) => handleDeadlineChange(e.target.value)}
             onBlur={(e) => handleDeadlineChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               if (e.key === "Escape") { setEditingDeadline(false); }
             }}
           />
-        ) : optimisticTask.deadline ? (
-          <span
-            className="text-xs text-muted-foreground group-hover:hidden cursor-pointer hover:text-foreground"
+        ) : (
+          <button
+            type="button"
+            className={`text-xs text-muted-foreground cursor-pointer hover:text-foreground ${optimisticTask.deadline ? "" : "md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"}`}
             onClick={() => setEditingDeadline(true)}
-            title="Click to edit deadline"
+            title={optimisticTask.deadline ? "Click to edit deadline" : "Add due date"}
           >
-            {formatDateShort(optimisticTask.deadline)}
-          </span>
-        ) : null}
+            {optimisticTask.deadline ? formatDateShort(optimisticTask.deadline) : "Add due date"}
+          </button>
+        )}
         {task.leverageScore && (
           <Badge variant="outline" className="border-0 text-xs text-yellow-400 group-hover:hidden">
             <Zap className="mr-0.5 h-3 w-3" />
@@ -298,6 +302,10 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
               Notes
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditingDeadline(true)}>
+            <CalendarClock className="mr-2 h-4 w-4" />
+            {optimisticTask.deadline ? "Edit due date" : "Add due date"}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
             <LogHoursDialog task={task} variant="button" className="h-7 w-full justify-start px-0" />
           </DropdownMenuItem>
@@ -335,11 +343,11 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
     itemsRef.current = items;
   }, [items]);
 
-  const taskIds = tasks.map((t) => t.id).join(",");
-  const [prevIds, setPrevIds] = useState(taskIds);
-  if (taskIds !== prevIds) {
+  const tasksKey = tasks.map((t) => `${t.id}:${t.deadline ?? ""}:${t.updatedAt}`).join(",");
+  const [prevTasksKey, setPrevTasksKey] = useState(tasksKey);
+  if (tasksKey !== prevTasksKey) {
     setItems(tasks);
-    setPrevIds(taskIds);
+    setPrevTasksKey(tasksKey);
   }
 
   useEffect(() => {

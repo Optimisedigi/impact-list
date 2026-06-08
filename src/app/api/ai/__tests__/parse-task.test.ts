@@ -13,6 +13,10 @@ import { POST } from '@/app/api/ai/parse-task/route'
 
 // Helper to set env var
 function setApiKey(key: string | undefined) {
+  delete process.env.MINIMAX_API_KEY
+  delete process.env.AI_PROVIDER
+  delete process.env.AI_BASE_URL
+  delete process.env.AI_MODEL
   if (key === undefined) {
     delete process.env.ANTHROPIC_API_KEY
   } else {
@@ -47,7 +51,7 @@ describe('AI Parse-Task API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('ANTHROPIC_API_KEY not configured')
+      expect(data.error).toContain('AI provider not configured')
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is "your-key-here"', async () => {
@@ -57,7 +61,7 @@ describe('AI Parse-Task API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('ANTHROPIC_API_KEY not configured')
+      expect(data.error).toContain('AI provider not configured')
     })
   })
 
@@ -107,8 +111,7 @@ describe('AI Parse-Task API Route - POST', () => {
       })
       vi.stubGlobal('fetch', mockFetch)
 
-      const response = await POST(makeRequest({ text: 'Prepare quarterly report for Acme by Friday' }))
-      const data = await response.json()
+      await POST(makeRequest({ text: 'Prepare quarterly report for Acme by Friday' }))
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.anthropic.com/v1/messages',
@@ -125,6 +128,50 @@ describe('AI Parse-Task API Route - POST', () => {
       const body = JSON.parse(mockFetch.mock.calls[0][1].body)
       expect(body.model).toBe('claude-haiku-4-5-20251001')
       expect(body.max_tokens).toBe(256)
+    })
+
+    it('uses MiniMax when MINIMAX_API_KEY is set', async () => {
+      delete process.env.ANTHROPIC_API_KEY
+      process.env.MINIMAX_API_KEY = 'minimax-valid-key'
+
+      const parsedTask = {
+        title: 'Prepare quarterly report',
+        category: 'client_delivery',
+        client: 'Acme Corp',
+        deadline: '2026-03-10',
+        estimatedHours: 4,
+        status: 'not_started',
+        toComplete: 'this_week',
+      }
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: JSON.stringify(parsedTask) } }],
+        }),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      const response = await POST(makeRequest({ text: 'Prepare quarterly report for Acme by Friday' }))
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data).toEqual(parsedTask)
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.minimax.io/v1/chat/completions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer minimax-valid-key',
+          }),
+        })
+      )
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body)
+      expect(body.model).toBe('MiniMax-M3')
+      expect(body.max_tokens).toBe(256)
+      expect(body.thinking).toEqual({ type: 'disabled' })
     })
 
     it('returns parsed task fields from Claude response', async () => {
@@ -182,7 +229,7 @@ describe('AI Parse-Task API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toContain('Claude API error: 429')
+      expect(data.error).toContain('Anthropic API error: 429')
       expect(data.error).toContain('Rate limited')
     })
 
@@ -196,7 +243,7 @@ describe('AI Parse-Task API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('No response from Claude')
+      expect(data.error).toBe('No response from Anthropic')
     })
 
     it('returns 500 when the response text contains no valid JSON', async () => {
@@ -224,7 +271,7 @@ describe('AI Parse-Task API Route - POST', () => {
       const data = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('No response from Claude')
+      expect(data.error).toBe('No response from Anthropic')
     })
   })
 })

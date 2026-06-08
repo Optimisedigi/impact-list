@@ -1,18 +1,20 @@
 /**
  * AI Provider abstraction.
  *
- * Supports two provider types:
- *   1. "anthropic" - Anthropic Claude API (paid, default)
- *   2. "openai" - Any OpenAI-compatible API (works with free options like Ollama, Groq, LM Studio)
+ * Supports three provider types:
+ *   1. "minimax" - MiniMax OpenAI-compatible API (default when MINIMAX_API_KEY is set)
+ *   2. "anthropic" - Anthropic Claude API
+ *   3. "openai" - Any OpenAI-compatible API (works with options like Ollama, Groq, LM Studio)
  *
- * Configure via environment variables in .env.local:
- *   AI_PROVIDER=openai              # "anthropic" (default) or "openai"
- *   AI_BASE_URL=http://localhost:11434/v1   # For Ollama, or https://api.groq.com/openai/v1 for Groq
- *   AI_API_KEY=your-key             # API key (not needed for Ollama)
- *   AI_MODEL=llama3                 # Model name for your provider
+ * Configure via environment variables in .env.local or Vercel:
+ *   MINIMAX_API_KEY=your-key         # Uses MiniMax by default, no other AI env needed
+ *   AI_PROVIDER=minimax              # Optional: "minimax", "anthropic", or "openai"
+ *   AI_MODEL=MiniMax-M3              # Optional model override
+ *   AI_BASE_URL=http://localhost:11434/v1   # For custom OpenAI-compatible providers
+ *   AI_API_KEY=your-key             # Generic API key fallback
  */
 
-type Provider = "anthropic" | "openai";
+type Provider = "anthropic" | "minimax" | "openai";
 
 interface AIConfig {
   provider: Provider;
@@ -22,7 +24,7 @@ interface AIConfig {
 }
 
 function getConfig(): AIConfig {
-  const provider = (process.env.AI_PROVIDER as Provider) || "anthropic";
+  const provider = getProvider();
 
   if (provider === "anthropic") {
     return {
@@ -30,6 +32,15 @@ function getConfig(): AIConfig {
       baseUrl: "https://api.anthropic.com",
       apiKey: process.env.ANTHROPIC_API_KEY || process.env.AI_API_KEY || "",
       model: process.env.AI_MODEL || "claude-haiku-4-5-20251001",
+    };
+  }
+
+  if (provider === "minimax") {
+    return {
+      provider,
+      baseUrl: process.env.MINIMAX_BASE_URL || process.env.AI_BASE_URL || "https://api.minimax.io/v1",
+      apiKey: process.env.MINIMAX_API_KEY || process.env.AI_API_KEY || "",
+      model: process.env.AI_MODEL || "MiniMax-M3",
     };
   }
 
@@ -41,9 +52,20 @@ function getConfig(): AIConfig {
   };
 }
 
+function getProvider(): Provider {
+  const provider = process.env.AI_PROVIDER;
+  if (provider === "anthropic" || provider === "minimax" || provider === "openai") {
+    return provider;
+  }
+  if (process.env.MINIMAX_API_KEY) {
+    return "minimax";
+  }
+  return "anthropic";
+}
+
 export function isAIConfigured(): boolean {
   const config = getConfig();
-  if (config.provider === "anthropic") {
+  if (config.provider === "anthropic" || config.provider === "minimax") {
     return !!config.apiKey && config.apiKey !== "your-key-here";
   }
   // OpenAI-compatible providers: assume configured if base URL is set
@@ -109,16 +131,24 @@ async function callOpenAICompatible(
       model: config.model,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
+      ...(config.provider === "minimax" ? { thinking: { type: "disabled" } } : {}),
     }),
   });
 
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${err}`);
+    throw new Error(`${getProviderName(config)} API error: ${response.status} - ${err}`);
   }
 
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content;
-  if (!text) throw new Error("No response from AI provider");
+  if (!text) throw new Error(`No response from ${getProviderName(config)}`);
   return text;
+}
+
+function getProviderName(config: AIConfig): string {
+  if (config.provider === "minimax") {
+    return "MiniMax";
+  }
+  return "AI provider";
 }

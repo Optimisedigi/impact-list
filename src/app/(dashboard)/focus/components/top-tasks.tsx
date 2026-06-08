@@ -68,13 +68,15 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
   );
+  const submittedDeadlineRef = useRef(task.deadline ?? null);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
 
   function handleDeadlineChange(value: string) {
     setEditingDeadline(false);
     const newDeadline = value || null;
-    if (newDeadline === task.deadline) return;
+    if (newDeadline === submittedDeadlineRef.current) return;
+    submittedDeadlineRef.current = newDeadline;
     startTransition(async () => {
       setOptimisticTask({ deadline: newDeadline } as Partial<Task>);
       await updateTaskField(task.id, "deadline", newDeadline);
@@ -194,6 +196,9 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   autoFocus
                   defaultValue={deadline ?? ""}
                   className="text-xs rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+                  onChange={(e) => {
+                    handleDeadlineChange(e.target.value);
+                  }}
                   onBlur={(e) => {
                     handleDeadlineChange(e.target.value);
                   }}
@@ -203,19 +208,26 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   }}
                 />
               </div>
-            ) : deadline ? (
-              <div
-                className={`flex items-center gap-1 text-xs mt-1 cursor-pointer hover:opacity-80 ${isOverdueDeadline ? "text-red-400" : isUrgent ? "text-orange-400" : "text-muted-foreground"}`}
+            ) : (
+              <button
+                type="button"
+                className={`flex items-center gap-1 text-xs mt-1 cursor-pointer hover:opacity-80 ${deadline ? isOverdueDeadline ? "text-red-400" : isUrgent ? "text-orange-400" : "text-muted-foreground" : "text-muted-foreground md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"}`}
                 onClick={() => setEditingDeadline(true)}
-                title="Click to edit deadline"
+                title={deadline ? "Click to edit deadline" : "Add due date"}
               >
                 <CalendarClock className="h-3 w-3" />
-                <span>{formatDateShort(deadline)}</span>
-                {days !== null && (
-                  <span>({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})</span>
+                {deadline ? (
+                  <>
+                    <span>{formatDateShort(deadline)}</span>
+                    {days !== null && (
+                      <span>({days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`})</span>
+                    )}
+                  </>
+                ) : (
+                  <span>Add due date</span>
                 )}
-              </div>
-            ) : null;
+              </button>
+            );
           })()}
         </CardHeader>
         <CardContent className="pt-0">
@@ -359,11 +371,11 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
   }, [items]);
 
   // Sync with server data when tasks change
-  const taskIds = tasks.map((t) => t.id).join(",");
-  const [prevIds, setPrevIds] = useState(taskIds);
-  if (taskIds !== prevIds) {
+  const tasksKey = tasks.map((t) => `${t.id}:${t.deadline ?? ""}:${t.updatedAt}`).join(",");
+  const [prevTasksKey, setPrevTasksKey] = useState(tasksKey);
+  if (tasksKey !== prevTasksKey) {
     setItems(tasks);
-    setPrevIds(taskIds);
+    setPrevTasksKey(tasksKey);
   }
 
   useEffect(() => {
