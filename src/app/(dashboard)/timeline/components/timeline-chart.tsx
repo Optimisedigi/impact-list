@@ -34,7 +34,7 @@ interface TimelineChartProps {
 type WindowSize = "3m" | "6m";
 
 const allProjectsValue = "__all__";
-const weekWidthPx = 112;
+const weekWidthPx = 56;
 const gutterWidthPx = 288;
 
 function monthSpans(weeks: Date[]): { label: string; start: number; span: number }[] {
