@@ -315,7 +315,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
                         backgroundColor: projectColor(task.id),
                       }}
                     >
-                      <span className="block truncate">{task.title} · {remaining}</span>
+                      <span className="block truncate text-center">{remaining}</span>
                     </button>
                     <Button
                       type="button"
