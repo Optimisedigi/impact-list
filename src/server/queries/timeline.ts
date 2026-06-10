@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { sql } from "drizzle-orm";
 import type { Task } from "@/types";
 
 export type TimelineTask = Task & {
@@ -113,7 +114,7 @@ export async function getTimelineCandidateTasks(): Promise<TimelineTask[]> {
 
 export async function getTaskTimelineFields(taskId: number): Promise<Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">> {
   try {
-    const row = await db.get<Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">>(`
+    const row = await db.get<Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">>(sql`
       SELECT
         timeline_start AS timelineStart,
         timeline_end AS timelineEnd,

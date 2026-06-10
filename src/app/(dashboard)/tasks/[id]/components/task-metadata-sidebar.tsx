@@ -15,7 +15,7 @@ import { setTimelineVisibility, updateTimelineDates } from "@/server/actions/tim
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "../../components/priority-badge";
-import { formatDateShort, daysLeft, todayLocalISO } from "@/lib/time-utils";
+import { daysLeft, todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
 import type { CategoryOption } from "@/lib/constants";
 import type { TimelineTask } from "@/server/queries/timeline";
