@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addWeeks, format, startOfMonth } from "date-fns";
+import { addWeeks, differenceInCalendarDays, format, startOfMonth } from "date-fns";
 import { CalendarClock, ExternalLink, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { setTimelineVisibility, updateTimelineDates } from "@/server/actions/timeline";
+import { setTimelineVisibility } from "@/server/actions/timeline";
 import {
   barGeometry,
   formatDateShort,
@@ -37,6 +37,17 @@ const allProjectsValue = "__all__";
 const weekWidthPx = 56;
 const gutterWidthPx = 288;
 
+const projectColors = [
+  "oklch(0.58 0.18 250)",
+  "oklch(0.56 0.16 150)",
+  "oklch(0.62 0.18 35)",
+  "oklch(0.54 0.18 310)",
+  "oklch(0.58 0.16 95)",
+  "oklch(0.55 0.14 205)",
+  "oklch(0.52 0.16 20)",
+  "oklch(0.50 0.14 175)",
+] as const;
+
 function monthSpans(weeks: Date[]): { label: string; start: number; span: number }[] {
   const spans: { label: string; start: number; span: number }[] = [];
   for (let index = 0; index < weeks.length; index++) {
@@ -53,6 +64,21 @@ function monthSpans(weeks: Date[]): { label: string; start: number; span: number
 
 function safeTaskEnd(task: TimelineTask): Date {
   return resolveTimelineEnd(task.timelineStart ?? new Date(), task.timelineEnd);
+}
+
+function projectColor(taskId: number): string {
+  return projectColors[Math.abs(taskId) % projectColors.length];
+}
+
+function daysRemainingLabel(end: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endDate = new Date(end);
+  endDate.setHours(0, 0, 0, 0);
+  const days = differenceInCalendarDays(endDate, today);
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return "due today";
+  return `${days}d left`;
 }
 
 export function TimelineChart({ tasks, allTasks, categoryMap, clients }: TimelineChartProps) {
@@ -109,14 +135,6 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
     setActionError(null);
     startTransition(async () => {
       const result = await setTimelineVisibility(taskId, false);
-      if (!result.ok) setActionError(result.error);
-    });
-  }
-
-  function changeDates(task: TimelineTask, start: string | null, end: string | null): void {
-    setActionError(null);
-    startTransition(async () => {
-      const result = await updateTimelineDates(task.id, start, end);
       if (!result.ok) setActionError(result.error);
     });
   }
@@ -253,6 +271,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
               const start = task.timelineStart ?? new Date();
               const end = safeTaskEnd(task);
               const geometry = barGeometry(start, task.timelineEnd, startWeek, weeks.length);
+              const remaining = daysRemainingLabel(end);
               return (
                 <div
                   key={task.id}
@@ -271,24 +290,6 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
                       <span className="block truncate text-xs text-muted-foreground">
                         {task.client || "No client"} · {category.label}
                       </span>
-                      <span className="mt-1 flex gap-1">
-                        <input
-                          type="date"
-                          value={task.timelineStart ?? ""}
-                          disabled={isPending}
-                          onChange={(event) => changeDates(task, event.target.value || null, task.timelineEnd)}
-                          className="h-6 w-28 rounded border bg-background px-1 text-xs"
-                          aria-label={`${task.title} timeline start`}
-                        />
-                        <input
-                          type="date"
-                          value={task.timelineEnd ?? ""}
-                          disabled={isPending}
-                          onChange={(event) => changeDates(task, task.timelineStart, event.target.value || null)}
-                          className="h-6 w-28 rounded border bg-background px-1 text-xs"
-                          aria-label={`${task.title} timeline end`}
-                        />
-                      </span>
                     </span>
                     <button
                       type="button"
@@ -303,7 +304,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
                     <button
                       type="button"
                       onClick={() => router.push(`/tasks/${task.id}`)}
-                      title={`${task.title}: ${formatDateShort(task.timelineStart)} – ${formatDateShort(end.toISOString())}`}
+                      title={`${task.title}: ${formatDateShort(task.timelineStart)} – ${formatDateShort(end.toISOString())} · ${remaining}`}
                       className={cn(
                         "absolute top-1/2 h-8 -translate-y-1/2 rounded-full px-3 text-left text-xs font-medium text-white shadow-sm transition hover:brightness-110",
                         task.status === "done" && "opacity-55"
@@ -311,10 +312,10 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
                       style={{
                         left: `${geometry.leftPct}%`,
                         width: `${Math.max(geometry.widthPct, 1.5)}%`,
-                        backgroundColor: category.color,
+                        backgroundColor: projectColor(task.id),
                       }}
                     >
-                      <span className="block truncate">{task.title}</span>
+                      <span className="block truncate">{task.title} · {remaining}</span>
                     </button>
                     <Button
                       type="button"
