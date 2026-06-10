@@ -69,7 +69,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
   }, [selectedClient, tasks]);
 
   const maxWeeks = windowSize === "6m" ? 26 : 13;
-  const minWeeks = windowSize === "6m" ? 18 : 13;
+  const minWeeks = maxWeeks;
   const timelineWindow = useMemo(
     () => getTimelineWindow(
       filteredTasks.map((task) => ({ start: task.timelineStart ?? "", end: task.timelineEnd })),

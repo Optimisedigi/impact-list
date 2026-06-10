@@ -7,6 +7,7 @@ import { TaskMetadataSidebar } from "./task-metadata-sidebar";
 import { TimeEntriesLog } from "./time-entries-log";
 import type { Task, TimeEntry } from "@/types";
 import type { CategoryOption } from "@/lib/constants";
+import type { TimelineTask } from "@/server/queries/timeline";
 
 export function TaskDetailView({
   task,
@@ -14,12 +15,14 @@ export function TaskDetailView({
   clientOptions,
   categoryMap,
   categoryOptions,
+  timelineFields,
 }: {
   task: Task;
   timeEntries: TimeEntry[];
   clientOptions: string[];
   categoryMap: Record<string, { label: string; color: string }>;
   categoryOptions: CategoryOption[];
+  timelineFields: Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">;
 }) {
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col overflow-hidden">
@@ -49,6 +52,7 @@ export function TaskDetailView({
             clientOptions={clientOptions}
             categoryMap={categoryMap}
             categoryOptions={categoryOptions}
+            timelineFields={timelineFields}
           />
           <TimeEntriesLog taskId={task.id} timeEntries={timeEntries} />
         </div>

@@ -110,3 +110,23 @@ export async function getTimelineCandidateTasks(): Promise<TimelineTask[]> {
     return db.all<TimelineTask>(`${fallbackTimelineSelect} ORDER BY sortOrder ASC, title ASC`);
   }
 }
+
+export async function getTaskTimelineFields(taskId: number): Promise<Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">> {
+  try {
+    const row = await db.get<Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">>(`
+      SELECT
+        timeline_start AS timelineStart,
+        timeline_end AS timelineEnd,
+        show_on_timeline AS showOnTimeline
+      FROM tasks
+      WHERE id = ${taskId}
+    `);
+    return {
+      timelineStart: row?.timelineStart ?? null,
+      timelineEnd: row?.timelineEnd ?? null,
+      showOnTimeline: Boolean(row?.showOnTimeline),
+    };
+  } catch {
+    return { timelineStart: null, timelineEnd: null, showOnTimeline: false };
+  }
+}

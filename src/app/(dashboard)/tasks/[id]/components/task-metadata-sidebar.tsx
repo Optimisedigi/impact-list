@@ -11,27 +11,33 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { updateTaskField } from "@/server/actions/tasks";
+import { setTimelineVisibility, updateTimelineDates } from "@/server/actions/timeline";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "../../components/priority-badge";
 import { formatDateShort, daysLeft, todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
 import type { CategoryOption } from "@/lib/constants";
+import type { TimelineTask } from "@/server/queries/timeline";
 
 export function TaskMetadataSidebar({
   task,
   clientOptions,
   categoryMap,
   categoryOptions,
+  timelineFields,
 }: {
   task: Task;
   clientOptions: string[];
   categoryMap: Record<string, { label: string; color: string }>;
   categoryOptions: CategoryOption[];
+  timelineFields: Pick<TimelineTask, "timelineStart" | "timelineEnd" | "showOnTimeline">;
 }) {
   const [isPending, startTransition] = useTransition();
   const [markingDone, setMarkingDone] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timeline, setTimeline] = useState(timelineFields);
   const [optimistic, setOptimistic] = useOptimistic(
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
@@ -58,6 +64,31 @@ export function TaskMetadataSidebar({
       }
       await updateTaskField(task.id, "status", "done");
       setMarkingDone(false);
+    });
+  }
+
+  function toggleTimeline(show: boolean) {
+    setTimelineError(null);
+    const nextStart = show && !timeline.timelineStart ? todayLocalISO() : timeline.timelineStart;
+    setTimeline((current) => ({ ...current, showOnTimeline: show, timelineStart: nextStart }));
+    startTransition(async () => {
+      const result = await setTimelineVisibility(task.id, show);
+      if (!result.ok) {
+        setTimeline(timeline);
+        setTimelineError(result.error);
+      }
+    });
+  }
+
+  function saveTimelineDates(start: string | null, end: string | null) {
+    setTimelineError(null);
+    setTimeline((current) => ({ ...current, timelineStart: start, timelineEnd: end }));
+    startTransition(async () => {
+      const result = await updateTimelineDates(task.id, start, end);
+      if (!result.ok) {
+        setTimeline(timeline);
+        setTimelineError(result.error);
+      }
     });
   }
 
@@ -193,6 +224,40 @@ export function TaskMetadataSidebar({
               : `${days}d left`}
           </span>
         )}
+      </Field>
+
+      <Field label="Timeline">
+        <div className="space-y-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={timeline.showOnTimeline ? "secondary" : "outline"}
+            className="h-8 w-full"
+            disabled={isPending}
+            onClick={() => toggleTimeline(!timeline.showOnTimeline)}
+          >
+            {timeline.showOnTimeline ? "Remove from timeline" : "Add to timeline"}
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              type="date"
+              value={timeline.timelineStart ?? ""}
+              disabled={isPending}
+              onChange={(event) => saveTimelineDates(event.target.value || null, timeline.timelineEnd)}
+              className="h-8"
+              aria-label="Timeline start"
+            />
+            <Input
+              type="date"
+              value={timeline.timelineEnd ?? ""}
+              disabled={isPending}
+              onChange={(event) => saveTimelineDates(timeline.timelineStart, event.target.value || null)}
+              className="h-8"
+              aria-label="Timeline end"
+            />
+          </div>
+          {timelineError && <p className="text-xs text-destructive">{timelineError}</p>}
+        </div>
       </Field>
 
       <Field label="Estimated Hours">

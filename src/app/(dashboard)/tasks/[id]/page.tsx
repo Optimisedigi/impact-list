@@ -4,6 +4,7 @@ import { getTimeEntriesForTask } from "@/server/queries/time-entries";
 import { getAllClients } from "@/server/actions/clients";
 import { getAllCategories } from "@/server/actions/categories";
 import { getDistinctClients } from "@/server/queries/tasks";
+import { getTaskTimelineFields } from "@/server/queries/timeline";
 import { buildCategoryMap, buildCategoryOptions } from "@/lib/constants";
 import { TaskDetailView } from "./components/task-detail-view";
 
@@ -19,12 +20,13 @@ export default async function TaskDetailPage({
   const task = await getTaskById(taskId);
   if (!task) notFound();
 
-  const [timeEntries, managedClients, distinctClients, dbCategories] =
+  const [timeEntries, managedClients, distinctClients, dbCategories, timelineFields] =
     await Promise.all([
       getTimeEntriesForTask(taskId),
       getAllClients(),
       getDistinctClients(),
       getAllCategories(),
+      getTaskTimelineFields(taskId),
     ]);
 
   const clientOptions =
@@ -41,6 +43,7 @@ export default async function TaskDetailPage({
       clientOptions={clientOptions}
       categoryMap={categoryMap}
       categoryOptions={categoryOptions}
+      timelineFields={timelineFields}
     />
   );
 }
