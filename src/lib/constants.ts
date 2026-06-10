@@ -61,6 +61,7 @@ export const NAV_ITEMS = [
   { href: "/analytics", label: "Analytics", icon: "bar-chart-3" },
   { href: "/matrix", label: "Matrix", icon: "scatter-chart" },
   { href: "/treemap", label: "Treemap", icon: "layout-grid" },
+  { href: "/timeline", label: "Timeline", icon: "gantt-chart" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ] as const;
 

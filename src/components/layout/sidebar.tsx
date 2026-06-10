@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   BarChart3,
   Calendar,
+  GanttChart,
   Settings,
   Zap,
   PanelLeftClose,
@@ -26,6 +27,7 @@ const icons = {
   "layout-grid": LayoutGrid,
   "bar-chart-3": BarChart3,
   calendar: Calendar,
+  "gantt-chart": GanttChart,
   settings: Settings,
 } as const;
 
@@ -36,6 +38,7 @@ const NAV_ITEMS = [
   { href: "/analytics", label: "Analytics", icon: "bar-chart-3" as const },
   { href: "/matrix", label: "Matrix", icon: "scatter-chart" as const },
   { href: "/treemap", label: "Treemap", icon: "layout-grid" as const },
+  { href: "/timeline", label: "Timeline", icon: "gantt-chart" as const },
   { href: "/settings", label: "Settings", icon: "settings" as const },
 ];
 
