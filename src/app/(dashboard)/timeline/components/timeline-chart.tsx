@@ -61,6 +61,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
   const [selectedClient, setSelectedClient] = useState(allProjectsValue);
   const [windowSize, setWindowSize] = useState<WindowSize>("6m");
   const [taskToAdd, setTaskToAdd] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filteredTasks = useMemo(() => {
     if (selectedClient === allProjectsValue) return tasks;
@@ -93,21 +94,30 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
   function addTaskToTimeline(): void {
     const id = Number(taskToAdd);
     if (!Number.isFinite(id)) return;
+    setActionError(null);
     startTransition(async () => {
-      await setTimelineVisibility(id, true);
-      setTaskToAdd("");
+      const result = await setTimelineVisibility(id, true);
+      if (result.ok) {
+        setTaskToAdd("");
+      } else {
+        setActionError(result.error);
+      }
     });
   }
 
   function hideTask(taskId: number): void {
+    setActionError(null);
     startTransition(async () => {
-      await setTimelineVisibility(taskId, false);
+      const result = await setTimelineVisibility(taskId, false);
+      if (!result.ok) setActionError(result.error);
     });
   }
 
   function changeDates(task: TimelineTask, start: string | null, end: string | null): void {
+    setActionError(null);
     startTransition(async () => {
-      await updateTimelineDates(task.id, start, end);
+      const result = await updateTimelineDates(task.id, start, end);
+      if (!result.ok) setActionError(result.error);
     });
   }
 
@@ -120,6 +130,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
           <p className="text-sm text-muted-foreground">
             Add a major task to the timeline and it will get today as its start date. You can then adjust its start and end dates here.
           </p>
+          {actionError && <p className="text-xs text-destructive">{actionError}</p>}
           <div className="flex justify-center gap-2">
             <Select value={taskToAdd} onValueChange={setTaskToAdd}>
               <SelectTrigger className="w-[260px]">
@@ -187,9 +198,12 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
             ))}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {filteredTasks.length} project{filteredTasks.length === 1 ? "" : "s"} · {format(startWeek, "d MMM")} – {format(addWeeks(startWeek, weeks.length), "d MMM yyyy")}
-        </p>
+        <div className="space-y-1 text-right">
+          <p className="text-sm text-muted-foreground">
+            {filteredTasks.length} project{filteredTasks.length === 1 ? "" : "s"} · {format(startWeek, "d MMM")} – {format(addWeeks(startWeek, weeks.length), "d MMM yyyy")}
+          </p>
+          {actionError && <p className="text-xs text-destructive">{actionError}</p>}
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">

@@ -17,5 +17,5 @@ async function addColumnIfMissing(statement: string): Promise<void> {
 export async function ensureTimelineColumns(): Promise<void> {
   await addColumnIfMissing("ALTER TABLE tasks ADD COLUMN timeline_start text");
   await addColumnIfMissing("ALTER TABLE tasks ADD COLUMN timeline_end text");
-  await addColumnIfMissing("ALTER TABLE tasks ADD COLUMN show_on_timeline integer DEFAULT false NOT NULL");
+  await addColumnIfMissing("ALTER TABLE tasks ADD COLUMN show_on_timeline integer DEFAULT 0");
 }
