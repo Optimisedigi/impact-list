@@ -1,13 +1,12 @@
 import { getAllCategories } from "@/server/actions/categories";
-import { getAllTasks } from "@/server/queries/tasks";
-import { getTimelineTasks } from "@/server/queries/timeline";
+import { getTimelineCandidateTasks, getTimelineTasks } from "@/server/queries/timeline";
 import { buildCategoryMap } from "@/lib/constants";
 import { TimelineChart } from "./components/timeline-chart";
 
 export default async function TimelinePage() {
   const [tasks, allTasks, dbCategories] = await Promise.all([
     getTimelineTasks(),
-    getAllTasks(),
+    getTimelineCandidateTasks(),
     getAllCategories(),
   ]);
   const categoryMap = buildCategoryMap(dbCategories);

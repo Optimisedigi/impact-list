@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { todayLocalISO } from "@/lib/time-utils";
+import { ensureTimelineColumns } from "@/server/timeline-schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -13,6 +14,7 @@ function revalidateTimelineTask(id: number): void {
 }
 
 export async function setTimelineVisibility(id: number, show: boolean) {
+  await ensureTimelineColumns();
   const existing = await db
     .select({ timelineStart: tasks.timelineStart })
     .from(tasks)
@@ -37,6 +39,7 @@ export async function updateTimelineDates(
   start: string | null,
   end: string | null
 ) {
+  await ensureTimelineColumns();
   const result = await db
     .update(tasks)
     .set({
