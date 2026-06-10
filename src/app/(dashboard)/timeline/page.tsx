@@ -2,13 +2,21 @@ import { getAllCategories } from "@/server/actions/categories";
 import { getTimelineCandidateTasks, getTimelineTasks } from "@/server/queries/timeline";
 import { buildCategoryMap } from "@/lib/constants";
 import { TimelineChart } from "./components/timeline-chart";
+import type { Category, Task } from "@/types";
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === "fulfilled" ? result.value : fallback;
+}
 
 export default async function TimelinePage() {
-  const [tasks, allTasks, dbCategories] = await Promise.all([
+  const [tasksResult, allTasksResult, categoriesResult] = await Promise.allSettled([
     getTimelineTasks(),
     getTimelineCandidateTasks(),
     getAllCategories(),
   ]);
+  const tasks = settledValue(tasksResult, [] as Task[]);
+  const allTasks = settledValue(allTasksResult, [] as Task[]);
+  const dbCategories = settledValue(categoriesResult, [] as Category[]);
   const categoryMap = buildCategoryMap(dbCategories);
   const clients = Array.from(
     new Set(tasks.map((task) => task.client).filter((client): client is string => Boolean(client)))
