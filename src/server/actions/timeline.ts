@@ -19,7 +19,7 @@ function revalidateTimelineTask(id: number): void {
 function timelineActionError(error: unknown): TimelineActionResult {
   const message = error instanceof Error ? error.message : "Timeline update failed";
   console.error("Timeline action failed", { message });
-  return { ok: false, error: message };
+  return { ok: false, error: "Timeline update failed. Please try again." };
 }
 
 export async function setTimelineVisibility(id: number, show: boolean): Promise<TimelineActionResult> {
