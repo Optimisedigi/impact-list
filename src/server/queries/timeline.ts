@@ -1,9 +1,39 @@
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
 import type { Task } from "@/types";
 
-const timelineFallbackSelect = `
+export type TimelineTask = Task & {
+  timelineStart: string | null;
+  timelineEnd: string | null;
+  showOnTimeline: boolean;
+};
+
+const baseTimelineSelect = `
+  SELECT
+    id,
+    title,
+    description,
+    category,
+    status,
+    to_complete AS toComplete,
+    client,
+    deadline,
+    estimated_hours AS estimatedHours,
+    actual_hours AS actualHours,
+    priority_score AS priorityScore,
+    leverage_score AS leverageScore,
+    sequence_reason AS sequenceReason,
+    growth_phase_id AS growthPhaseId,
+    completed_at AS completedAt,
+    recurring_task_id AS recurringTaskId,
+    dismissed_from_focus AS dismissedFromFocus,
+    notes,
+    sort_order AS sortOrder,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM tasks
+`;
+
+const fallbackTimelineSelect = `
   SELECT
     id,
     title,
@@ -32,26 +62,51 @@ const timelineFallbackSelect = `
   FROM tasks
 `;
 
-async function getTimelineFallbackTasks(): Promise<Task[]> {
-  return db.all<Task>(`${timelineFallbackSelect} ORDER BY sort_order ASC, title ASC`);
-}
-
-export async function getTimelineTasks(): Promise<Task[]> {
+export async function getTimelineTasks(): Promise<TimelineTask[]> {
   try {
-    return await db
-      .select()
-      .from(tasks)
-      .where(and(eq(tasks.showOnTimeline, true), isNotNull(tasks.timelineStart)))
-      .orderBy(asc(tasks.timelineStart), asc(tasks.timelineEnd), asc(tasks.sortOrder));
+    return await db.all<TimelineTask>(`
+      SELECT
+        id,
+        title,
+        description,
+        category,
+        status,
+        to_complete AS toComplete,
+        client,
+        deadline,
+        timeline_start AS timelineStart,
+        timeline_end AS timelineEnd,
+        show_on_timeline AS showOnTimeline,
+        estimated_hours AS estimatedHours,
+        actual_hours AS actualHours,
+        priority_score AS priorityScore,
+        leverage_score AS leverageScore,
+        sequence_reason AS sequenceReason,
+        growth_phase_id AS growthPhaseId,
+        completed_at AS completedAt,
+        recurring_task_id AS recurringTaskId,
+        dismissed_from_focus AS dismissedFromFocus,
+        notes,
+        sort_order AS sortOrder,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM tasks
+      WHERE show_on_timeline = true AND timeline_start IS NOT NULL
+      ORDER BY timeline_start ASC, timeline_end ASC, sort_order ASC
+    `);
   } catch {
     return [];
   }
 }
 
-export async function getTimelineCandidateTasks(): Promise<Task[]> {
+export async function getTimelineCandidateTasks(): Promise<TimelineTask[]> {
   try {
-    return await db.select().from(tasks).orderBy(asc(tasks.sortOrder), asc(tasks.title));
+    return await db.all<TimelineTask>(`
+      SELECT *, NULL AS timelineStart, NULL AS timelineEnd, false AS showOnTimeline
+      FROM (${baseTimelineSelect})
+      ORDER BY sortOrder ASC, title ASC
+    `);
   } catch {
-    return getTimelineFallbackTasks();
+    return db.all<TimelineTask>(`${fallbackTimelineSelect} ORDER BY sortOrder ASC, title ASC`);
   }
 }

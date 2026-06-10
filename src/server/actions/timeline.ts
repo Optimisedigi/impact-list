@@ -1,10 +1,9 @@
 "use server";
 
 import { db } from "@/db";
-import { tasks } from "@/db/schema";
 import { todayLocalISO } from "@/lib/time-utils";
 import { ensureTimelineColumns } from "@/server/timeline-schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 function revalidateTimelineTask(id: number): void {
@@ -13,43 +12,33 @@ function revalidateTimelineTask(id: number): void {
   revalidatePath(`/tasks/${id}`);
 }
 
-export async function setTimelineVisibility(id: number, show: boolean) {
+export async function setTimelineVisibility(id: number, show: boolean): Promise<void> {
   await ensureTimelineColumns();
-  const existing = await db
-    .select({ timelineStart: tasks.timelineStart })
-    .from(tasks)
-    .where(eq(tasks.id, id));
+  const existing = await db.get<{ timelineStart: string | null }>(
+    sql`SELECT timeline_start AS timelineStart FROM tasks WHERE id = ${id}`
+  );
+  const nextStart = show && !existing?.timelineStart ? todayLocalISO() : existing?.timelineStart ?? null;
 
-  const result = await db
-    .update(tasks)
-    .set({
-      showOnTimeline: show,
-      timelineStart: show && !existing[0]?.timelineStart ? todayLocalISO() : existing[0]?.timelineStart,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(tasks.id, id))
-    .returning();
+  await db.run(sql`
+    UPDATE tasks
+    SET show_on_timeline = ${show}, timeline_start = ${nextStart}, updated_at = ${new Date().toISOString()}
+    WHERE id = ${id}
+  `);
 
   revalidateTimelineTask(id);
-  return result[0];
 }
 
 export async function updateTimelineDates(
   id: number,
   start: string | null,
   end: string | null
-) {
+): Promise<void> {
   await ensureTimelineColumns();
-  const result = await db
-    .update(tasks)
-    .set({
-      timelineStart: start,
-      timelineEnd: end,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(tasks.id, id))
-    .returning();
+  await db.run(sql`
+    UPDATE tasks
+    SET timeline_start = ${start}, timeline_end = ${end}, updated_at = ${new Date().toISOString()}
+    WHERE id = ${id}
+  `);
 
   revalidateTimelineTask(id);
-  return result[0];
 }

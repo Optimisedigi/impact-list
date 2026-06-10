@@ -22,11 +22,11 @@ import {
   weekIndexFor,
 } from "@/lib/time-utils";
 import { cn } from "@/lib/utils";
-import type { Task } from "@/types";
+import type { TimelineTask } from "@/server/queries/timeline";
 
 interface TimelineChartProps {
-  tasks: Task[];
-  allTasks: Task[];
+  tasks: TimelineTask[];
+  allTasks: TimelineTask[];
   categoryMap: Record<string, { label: string; color: string }>;
   clients: string[];
 }
@@ -51,7 +51,7 @@ function monthSpans(weeks: Date[]): { label: string; start: number; span: number
   return spans;
 }
 
-function safeTaskEnd(task: Task): Date {
+function safeTaskEnd(task: TimelineTask): Date {
   return resolveTimelineEnd(task.timelineStart ?? new Date(), task.timelineEnd);
 }
 
@@ -105,7 +105,7 @@ export function TimelineChart({ tasks, allTasks, categoryMap, clients }: Timelin
     });
   }
 
-  function changeDates(task: Task, start: string | null, end: string | null): void {
+  function changeDates(task: TimelineTask, start: string | null, end: string | null): void {
     startTransition(async () => {
       await updateTimelineDates(task.id, start, end);
     });
