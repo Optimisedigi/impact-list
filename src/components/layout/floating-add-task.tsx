@@ -26,7 +26,9 @@ import type { CategoryOption } from "@/lib/constants";
 import { getAllCategories } from "@/server/actions/categories";
 import { createTask } from "@/server/actions/tasks";
 import { createTimeEntry } from "@/server/actions/time-entries";
+import { createDailyLog } from "@/server/actions/daily-logs";
 import { getAllClients } from "@/server/actions/clients";
+import { todayLocalISO } from "@/lib/time-utils";
 import { Plus } from "lucide-react";
 import { SmartTaskInput } from "@/components/ui/voice-input-button";
 
@@ -53,6 +55,17 @@ const logWorkSchema = z.object({
 
 type LogWorkFormData = z.infer<typeof logWorkSchema>;
 
+const UNTAGGED_VALUE = "untagged";
+
+const dayHoursSchema = z.object({
+  date: z.string().min(1),
+  hours: z.string().min(1, "Hours required"),
+  category: z.string().optional(),
+  note: z.string().optional(),
+});
+
+type DayHoursFormData = z.infer<typeof dayHoursSchema>;
+
 export function FloatingAddTask() {
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
@@ -76,6 +89,15 @@ export function FloatingAddTask() {
       date: new Date().toISOString().split("T")[0],
     },
   });
+
+  const dayHoursForm = useForm<DayHoursFormData>({
+    resolver: zodResolver(dayHoursSchema),
+    defaultValues: {
+      category: UNTAGGED_VALUE,
+      date: todayLocalISO(),
+    },
+  });
+  const [dayHoursError, setDayHoursError] = useState<string | null>(null);
 
   function handleVoiceResult(parsed: Record<string, unknown>) {
     if (parsed.title) setValue("title", String(parsed.title));
@@ -137,6 +159,22 @@ export function FloatingAddTask() {
     setOpen(false);
   }
 
+  async function onLogDayHoursSubmit(data: DayHoursFormData) {
+    setDayHoursError(null);
+    const result = await createDailyLog({
+      date: data.date,
+      hours: Number(data.hours),
+      category: !data.category || data.category === UNTAGGED_VALUE ? null : data.category,
+      note: data.note || null,
+    });
+    if (!result.ok) {
+      setDayHoursError(result.error);
+      return;
+    }
+    dayHoursForm.reset({ category: UNTAGGED_VALUE, date: todayLocalISO() });
+    setOpen(false);
+  }
+
   return (
     <>
       <Button
@@ -155,6 +193,7 @@ export function FloatingAddTask() {
             <TabsList className="w-full">
               <TabsTrigger value="new" className="flex-1">New Task</TabsTrigger>
               <TabsTrigger value="log" className="flex-1">Log Work Done</TabsTrigger>
+              <TabsTrigger value="day" className="flex-1">Log Day Hours</TabsTrigger>
             </TabsList>
 
             <TabsContent value="new" className="space-y-4 mt-4">
@@ -358,6 +397,63 @@ export function FloatingAddTask() {
                   </Button>
                   <Button type="submit" disabled={logForm.formState.isSubmitting}>
                     {logForm.formState.isSubmitting ? "Logging..." : "Log Work"}
+                  </Button>
+                </div>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="day" className="mt-4">
+              <p className="mb-4 text-xs text-muted-foreground">
+                Log a daily total of hours worked, optionally split by category. Separate from per-task time tracking.
+              </p>
+              <form onSubmit={dayHoursForm.handleSubmit(onLogDayHoursSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="day-hours">Hours</Label>
+                    <Input id="day-hours" type="number" step="0.25" min="0.25" max="24" {...dayHoursForm.register("hours")} placeholder="e.g. 8.5" />
+                    {dayHoursForm.formState.errors.hours && (
+                      <p className="mt-1 text-xs text-destructive">{dayHoursForm.formState.errors.hours.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="day-date">Date</Label>
+                    <Input id="day-date" type="date" {...dayHoursForm.register("date")} />
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Category</Label>
+                  <Select
+                    defaultValue={UNTAGGED_VALUE}
+                    onValueChange={(v) => dayHoursForm.setValue("category", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNTAGGED_VALUE}>Untagged</SelectItem>
+                      {catOptions.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="day-note">Note (optional)</Label>
+                  <Input id="day-note" {...dayHoursForm.register("note")} placeholder="What did you work on?" />
+                </div>
+
+                {dayHoursError && <p className="text-xs text-destructive">{dayHoursError}</p>}
+
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={dayHoursForm.formState.isSubmitting}>
+                    {dayHoursForm.formState.isSubmitting ? "Logging..." : "Log Day Hours"}
                   </Button>
                 </div>
               </form>

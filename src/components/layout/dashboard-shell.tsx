@@ -50,7 +50,7 @@ export function DashboardShell({
         </div>
       </div>
       <main
-        className="min-h-screen p-3 transition-all duration-200 md:p-6 overflow-x-hidden"
+        className="min-h-screen p-3 transition-all duration-200 md:py-6 md:px-4 overflow-x-hidden"
         style={
           { "--sidebar-width": collapsed ? "3.5rem" : "11rem" } as React.CSSProperties
         }

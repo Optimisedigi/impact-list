@@ -236,6 +236,20 @@ export const calendarSubscriptions = sqliteTable("calendar_subscriptions", {
   channelExpiresAt: text("channel_expires_at"),
 });
 
+export const dailyTimeLogs = sqliteTable("daily_time_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  date: text("date").notNull(), // YYYY-MM-DD (local)
+  hours: real("hours").notNull(),
+  category: text("category"), // nullable; category key or null for "untagged total"
+  note: text("note"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const categoryTargets = sqliteTable("category_targets", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   category: text("category")
