@@ -149,7 +149,7 @@ export default async function AnalyticsPage() {
         />
 
         <div className="grid gap-4 md:grid-cols-2">
-          <WeeklyHoursChart data={hoursWeekly} categoryOptions={categoryOptions} />
+          <WeeklyHoursChart data={hoursWeekly} />
           <MonthlyHoursChart data={hoursMonthly} />
         </div>
 
