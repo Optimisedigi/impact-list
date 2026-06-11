@@ -17,7 +17,13 @@ type WorkSection = {
   end: string;
 };
 
+const defaultSectionCount = 3;
+
 const emptyWorkSection = (id: string): WorkSection => ({ id, start: "", end: "" });
+
+function createEmptySections(count: number): WorkSection[] {
+  return Array.from({ length: count }, (_, index) => emptyWorkSection(`section-${index + 1}`));
+}
 
 function timeToMinutes(value: string): number | null {
   const [hourPart, minutePart] = value.split(":");
@@ -60,6 +66,7 @@ interface LogHoursDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   hideTrigger?: boolean;
+  defaultMode?: EntryMode;
 }
 
 export function LogHoursDialog({
@@ -69,12 +76,13 @@ export function LogHoursDialog({
   open: controlledOpen,
   onOpenChange,
   hideTrigger = false,
+  defaultMode = "sections",
 }: LogHoursDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [hours, setHours] = useState("");
-  const [entryMode, setEntryMode] = useState<EntryMode>("hours");
-  const [sections, setSections] = useState<WorkSection[]>([emptyWorkSection("section-1")]);
-  const [nextSectionId, setNextSectionId] = useState(2);
+  const [entryMode, setEntryMode] = useState<EntryMode>(defaultMode);
+  const [sections, setSections] = useState<WorkSection[]>(createEmptySections(defaultSectionCount));
+  const [nextSectionId, setNextSectionId] = useState(defaultSectionCount + 1);
   const [isPending, startTransition] = useTransition();
   const { finishTimer, hasTimer, getAllocatedSeconds } = useTaskTimer();
   const open = controlledOpen ?? internalOpen;
@@ -94,11 +102,12 @@ export function LogHoursDialog({
 
   function handleOpenChange(o: boolean) {
     if (o) {
-      setEntryMode("hours");
-      setSections([emptyWorkSection("section-1")]);
-      setNextSectionId(2);
+      const hasActiveTimer = hasTimer(task.id);
+      setEntryMode(hasActiveTimer ? "hours" : defaultMode);
+      setSections(createEmptySections(defaultSectionCount));
+      setNextSectionId(defaultSectionCount + 1);
       // Pre-fill with timer hours if running on this task
-      if (hasTimer(task.id)) {
+      if (hasActiveTimer) {
         const secs = getAllocatedSeconds(task.id);
         const h = Math.round((secs / 3600) * 100) / 100;
         setHours(h > 0 ? String(h) : "");
@@ -137,7 +146,7 @@ export function LogHoursDialog({
       await quickLogHours(task.id, hoursToLog, todayLocalISO());
       setOpen(false);
       setHours("");
-      setSections([emptyWorkSection("section-1")]);
+      setSections(createEmptySections(defaultSectionCount));
     });
   }
 
@@ -184,7 +193,7 @@ export function LogHoursDialog({
                 entryMode === "hours" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Total hours
+              Enter total
             </button>
             <button
               type="button"
@@ -193,7 +202,7 @@ export function LogHoursDialog({
                 entryMode === "sections" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Start / end
+              Start/end times
             </button>
           </div>
 
@@ -258,7 +267,7 @@ export function LogHoursDialog({
                 </p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Add breaks as separate sections, e.g. 09:00–12:00 and 13:00–18:00.
+                Enter each work block separately, e.g. 09:00–12:00, 13:00–18:00, 20:00–22:00.
               </p>
             </div>
           )}
