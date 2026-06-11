@@ -29,8 +29,58 @@ import { createTimeEntry } from "@/server/actions/time-entries";
 import { createDailyLog } from "@/server/actions/daily-logs";
 import { getAllClients } from "@/server/actions/clients";
 import { todayLocalISO } from "@/lib/time-utils";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { SmartTaskInput } from "@/components/ui/voice-input-button";
+
+type DayHoursMode = "sections" | "total";
+
+type WorkSection = {
+  id: string;
+  start: string;
+  end: string;
+};
+
+const defaultSectionCount = 3;
+
+function emptyWorkSection(id: string): WorkSection {
+  return { id, start: "", end: "" };
+}
+
+function createEmptySections(count: number): WorkSection[] {
+  return Array.from({ length: count }, (_, index) => emptyWorkSection(`section-${index + 1}`));
+}
+
+function timeToMinutes(value: string): number | null {
+  const [hourPart, minutePart] = value.split(":");
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return hour * 60 + minute;
+}
+
+function calculateSectionHours(sections: readonly WorkSection[]): number {
+  const totalMinutes = sections.reduce((total, section) => {
+    const start = timeToMinutes(section.start);
+    const end = timeToMinutes(section.end);
+
+    if (start == null || end == null || start === end) return total;
+
+    const duration = end > start ? end - start : end + 24 * 60 - start;
+    return total + duration;
+  }, 0);
+
+  return Math.round((totalMinutes / 60) * 100) / 100;
+}
+
+function formatHours(value: number): string {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  });
+}
 
 const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -57,7 +107,7 @@ type LogWorkFormData = z.infer<typeof logWorkSchema>;
 
 const dayHoursSchema = z.object({
   date: z.string().min(1),
-  hours: z.string().min(1, "Hours required"),
+  hours: z.string().optional(),
   note: z.string().optional(),
 });
 
@@ -94,6 +144,10 @@ export function FloatingAddTask() {
     },
   });
   const [dayHoursError, setDayHoursError] = useState<string | null>(null);
+  const [dayHoursMode, setDayHoursMode] = useState<DayHoursMode>("sections");
+  const [daySections, setDaySections] = useState<WorkSection[]>(createEmptySections(defaultSectionCount));
+  const [nextDaySectionId, setNextDaySectionId] = useState(defaultSectionCount + 1);
+  const daySectionHours = calculateSectionHours(daySections);
 
   function handleVoiceResult(parsed: Record<string, unknown>) {
     if (parsed.title) setValue("title", String(parsed.title));
@@ -155,11 +209,36 @@ export function FloatingAddTask() {
     setOpen(false);
   }
 
+  function updateDaySection(id: string, field: "start" | "end", value: string) {
+    setDaySections((currentSections) =>
+      currentSections.map((section) => (section.id === id ? { ...section, [field]: value } : section)),
+    );
+  }
+
+  function addDaySection() {
+    setDaySections((currentSections) => [...currentSections, emptyWorkSection(`section-${nextDaySectionId}`)]);
+    setNextDaySectionId((currentId) => currentId + 1);
+  }
+
+  function removeDaySection(id: string) {
+    setDaySections((currentSections) => {
+      if (currentSections.length === 1) return currentSections;
+      return currentSections.filter((section) => section.id !== id);
+    });
+  }
+
   async function onLogDayHoursSubmit(data: DayHoursFormData) {
     setDayHoursError(null);
+    const hours = dayHoursMode === "sections" ? daySectionHours : Number(data.hours);
+
+    if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+      setDayHoursError(dayHoursMode === "sections" ? "Enter at least one start and end time." : "Enter hours between 0 and 24.");
+      return;
+    }
+
     const result = await createDailyLog({
       date: data.date,
-      hours: Number(data.hours),
+      hours,
       category: null,
       note: data.note || null,
     });
@@ -168,6 +247,8 @@ export function FloatingAddTask() {
       return;
     }
     dayHoursForm.reset({ date: todayLocalISO() });
+    setDaySections(createEmptySections(defaultSectionCount));
+    setNextDaySectionId(defaultSectionCount + 1);
     setOpen(false);
   }
 
@@ -400,21 +481,87 @@ export function FloatingAddTask() {
 
             <TabsContent value="day" className="mt-4">
               <p className="mb-4 text-xs text-muted-foreground">
-                Log a daily total of hours worked. Separate from per-task time tracking.
+                Log a daily total of hours worked. Enter start/end sections and breaks are calculated for you.
               </p>
               <form onSubmit={dayHoursForm.handleSubmit(onLogDayHoursSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 rounded-lg border border-border bg-muted/30 p-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setDayHoursMode("sections")}
+                    className={`rounded-md px-3 py-1.5 transition-colors ${
+                      dayHoursMode === "sections" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Start/end times
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDayHoursMode("total")}
+                    className={`rounded-md px-3 py-1.5 transition-colors ${
+                      dayHoursMode === "total" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Enter total
+                  </button>
+                </div>
+
+                {dayHoursMode === "sections" ? (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      {daySections.map((section, index) => (
+                        <div key={section.id} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
+                          <Input
+                            type="time"
+                            value={section.start}
+                            onChange={(e) => updateDaySection(section.id, "start", e.target.value)}
+                            aria-label={`Work section ${index + 1} start time`}
+                            className="min-w-0 tabular-nums"
+                          />
+                          <span className="text-xs text-muted-foreground">to</span>
+                          <Input
+                            type="time"
+                            value={section.end}
+                            onChange={(e) => updateDaySection(section.id, "end", e.target.value)}
+                            aria-label={`Work section ${index + 1} end time`}
+                            className="min-w-0 tabular-nums"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeDaySection(section.id)}
+                            disabled={daySections.length === 1}
+                            className="h-9 w-9 text-muted-foreground"
+                            title="Remove section"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Button type="button" variant="outline" size="sm" onClick={addDaySection}>
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        Add section
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Total: <span className="font-medium text-foreground">{formatHours(daySectionHours)}h</span>
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Example: 10:30–13:00 and 14:00–22:00 logs 10.5h.
+                    </p>
+                  </div>
+                ) : (
                   <div>
                     <Label htmlFor="day-hours">Hours</Label>
                     <Input id="day-hours" type="number" step="0.25" min="0.25" max="24" {...dayHoursForm.register("hours")} placeholder="e.g. 8.5" />
-                    {dayHoursForm.formState.errors.hours && (
-                      <p className="mt-1 text-xs text-destructive">{dayHoursForm.formState.errors.hours.message}</p>
-                    )}
                   </div>
-                  <div>
-                    <Label htmlFor="day-date">Date</Label>
-                    <Input id="day-date" type="date" {...dayHoursForm.register("date")} />
-                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="day-date">Date</Label>
+                  <Input id="day-date" type="date" {...dayHoursForm.register("date")} />
                 </div>
 
                 <div>
