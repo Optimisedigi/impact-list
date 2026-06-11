@@ -3,11 +3,55 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Clock } from "lucide-react";
+import { Clock, Plus, Trash2 } from "lucide-react";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
+
+type EntryMode = "hours" | "sections";
+
+type WorkSection = {
+  id: string;
+  start: string;
+  end: string;
+};
+
+const emptyWorkSection = (id: string): WorkSection => ({ id, start: "", end: "" });
+
+function timeToMinutes(value: string): number | null {
+  const [hourPart, minutePart] = value.split(":");
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return hour * 60 + minute;
+}
+
+function calculateSectionHours(sections: readonly WorkSection[]): number {
+  const totalMinutes = sections.reduce((total, section) => {
+    const start = timeToMinutes(section.start);
+    const end = timeToMinutes(section.end);
+
+    if (start == null || end == null) return total;
+
+    if (end === start) return total;
+
+    const duration = end > start ? end - start : end + 24 * 60 - start;
+    return total + duration;
+  }, 0);
+
+  return Math.round((totalMinutes / 60) * 100) / 100;
+}
+
+function formatHours(value: number): string {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  });
+}
 
 interface LogHoursDialogProps {
   task: Task;
@@ -18,11 +62,22 @@ interface LogHoursDialogProps {
 export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHoursDialogProps) {
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState("");
+  const [entryMode, setEntryMode] = useState<EntryMode>("hours");
+  const [sections, setSections] = useState<WorkSection[]>([emptyWorkSection("section-1")]);
+  const [nextSectionId, setNextSectionId] = useState(2);
   const [isPending, startTransition] = useTransition();
   const { finishTimer, hasTimer, getAllocatedSeconds } = useTaskTimer();
 
+  const sectionHours = calculateSectionHours(sections);
+  const parsedHours = parseFloat(hours);
+  const hoursToLog = entryMode === "sections" ? sectionHours : parsedHours;
+  const canLog = Number.isFinite(hoursToLog) && hoursToLog > 0;
+
   function handleOpenChange(o: boolean) {
     if (o) {
+      setEntryMode("hours");
+      setSections([emptyWorkSection("section-1")]);
+      setNextSectionId(2);
       // Pre-fill with timer hours if running on this task
       if (hasTimer(task.id)) {
         const secs = getAllocatedSeconds(task.id);
@@ -35,17 +90,35 @@ export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHo
     setOpen(o);
   }
 
+  function updateSection(id: string, field: "start" | "end", value: string) {
+    setSections((currentSections) =>
+      currentSections.map((section) => (section.id === id ? { ...section, [field]: value } : section)),
+    );
+  }
+
+  function addSection() {
+    setSections((currentSections) => [...currentSections, emptyWorkSection(`section-${nextSectionId}`)]);
+    setNextSectionId((currentId) => currentId + 1);
+  }
+
+  function removeSection(id: string) {
+    setSections((currentSections) => {
+      if (currentSections.length === 1) return currentSections;
+      return currentSections.filter((section) => section.id !== id);
+    });
+  }
+
   function handleLog() {
-    const h = parseFloat(hours);
-    if (isNaN(h) || h <= 0) return;
+    if (!canLog) return;
     startTransition(async () => {
       // Stop timer if running and log its accumulated time too
       if (hasTimer(task.id)) {
         finishTimer(task.id);
       }
-      await quickLogHours(task.id, h, todayLocalISO());
+      await quickLogHours(task.id, hoursToLog, todayLocalISO());
       setOpen(false);
       setHours("");
+      setSections([emptyWorkSection("section-1")]);
     });
   }
 
@@ -81,28 +154,100 @@ export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHo
               Currently logged: <span className="font-medium text-foreground">{task.actualHours}h</span>
             </p>
           )}
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-muted-foreground whitespace-nowrap">Hours:</label>
-            <input
-              type="number"
-              step="0.25"
-              min="0"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-              placeholder="0"
-              autoFocus
-              className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleLog();
-              }}
-            />
+
+          <div className="grid grid-cols-2 rounded-lg border border-border bg-muted/30 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setEntryMode("hours")}
+              className={`rounded-md px-3 py-1.5 transition-colors ${
+                entryMode === "hours" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Total hours
+            </button>
+            <button
+              type="button"
+              onClick={() => setEntryMode("sections")}
+              className={`rounded-md px-3 py-1.5 transition-colors ${
+                entryMode === "sections" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Start / end
+            </button>
           </div>
+
+          {entryMode === "hours" ? (
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground whitespace-nowrap">Hours:</label>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                placeholder="0"
+                autoFocus
+                className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleLog();
+                }}
+              />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-2">
+                {sections.map((section, index) => (
+                  <div key={section.id} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
+                    <input
+                      type="time"
+                      value={section.start}
+                      onChange={(e) => updateSection(section.id, "start", e.target.value)}
+                      aria-label={`Work section ${index + 1} start time`}
+                      className="min-w-0 rounded border border-border bg-background px-2 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <span className="text-xs text-muted-foreground">to</span>
+                    <input
+                      type="time"
+                      value={section.end}
+                      onChange={(e) => updateSection(section.id, "end", e.target.value)}
+                      aria-label={`Work section ${index + 1} end time`}
+                      className="min-w-0 rounded border border-border bg-background px-2 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSection(section.id)}
+                      disabled={sections.length === 1}
+                      className="h-8 w-8 text-muted-foreground"
+                      title="Remove section"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <Button type="button" variant="outline" size="sm" onClick={addSection}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add section
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Total: <span className="font-medium text-foreground">{formatHours(sectionHours)}h</span>
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add breaks as separate sections, e.g. 09:00–12:00 and 13:00–18:00.
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleLog} disabled={isPending || !hours}>
-              Log
+            <Button size="sm" onClick={handleLog} disabled={isPending || !canLog}>
+              Log {canLog ? `${formatHours(hoursToLog)}h` : ""}
             </Button>
           </div>
         </div>
