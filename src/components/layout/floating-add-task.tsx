@@ -55,12 +55,9 @@ const logWorkSchema = z.object({
 
 type LogWorkFormData = z.infer<typeof logWorkSchema>;
 
-const UNTAGGED_VALUE = "untagged";
-
 const dayHoursSchema = z.object({
   date: z.string().min(1),
   hours: z.string().min(1, "Hours required"),
-  category: z.string().optional(),
   note: z.string().optional(),
 });
 
@@ -93,7 +90,6 @@ export function FloatingAddTask() {
   const dayHoursForm = useForm<DayHoursFormData>({
     resolver: zodResolver(dayHoursSchema),
     defaultValues: {
-      category: UNTAGGED_VALUE,
       date: todayLocalISO(),
     },
   });
@@ -164,14 +160,14 @@ export function FloatingAddTask() {
     const result = await createDailyLog({
       date: data.date,
       hours: Number(data.hours),
-      category: !data.category || data.category === UNTAGGED_VALUE ? null : data.category,
+      category: null,
       note: data.note || null,
     });
     if (!result.ok) {
       setDayHoursError(result.error);
       return;
     }
-    dayHoursForm.reset({ category: UNTAGGED_VALUE, date: todayLocalISO() });
+    dayHoursForm.reset({ date: todayLocalISO() });
     setOpen(false);
   }
 
@@ -404,7 +400,7 @@ export function FloatingAddTask() {
 
             <TabsContent value="day" className="mt-4">
               <p className="mb-4 text-xs text-muted-foreground">
-                Log a daily total of hours worked, optionally split by category. Separate from per-task time tracking.
+                Log a daily total of hours worked. Separate from per-task time tracking.
               </p>
               <form onSubmit={dayHoursForm.handleSubmit(onLogDayHoursSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -419,26 +415,6 @@ export function FloatingAddTask() {
                     <Label htmlFor="day-date">Date</Label>
                     <Input id="day-date" type="date" {...dayHoursForm.register("date")} />
                   </div>
-                </div>
-
-                <div>
-                  <Label>Category</Label>
-                  <Select
-                    defaultValue={UNTAGGED_VALUE}
-                    onValueChange={(v) => dayHoursForm.setValue("category", v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UNTAGGED_VALUE}>Untagged</SelectItem>
-                      {catOptions.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div>

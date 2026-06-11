@@ -144,7 +144,7 @@ export default async function AnalyticsPage() {
           <MonthlyHoursChart data={hoursMonthly} />
         </div>
 
-        <DailyLogList logs={recentLogs} categoryOptions={categoryOptions} categoryMap={categoryMap} />
+        <DailyLogList logs={recentLogs} />
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/time-utils";
 
 function round(value: number): string {
@@ -40,12 +40,10 @@ export function HoursStats({
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <Card key={card.title}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tabular-nums">{card.value}</div>
+        <Card key={card.title} className="gap-0 py-4">
+          <CardContent className="space-y-0.5">
+            <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+            <div className="text-2xl font-bold tabular-nums leading-tight">{card.value}</div>
             <p className="text-xs text-muted-foreground">{card.sub}</p>
           </CardContent>
         </Card>
