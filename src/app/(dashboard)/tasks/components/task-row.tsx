@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "./priority-badge";
+import { LogHoursDialog } from "@/app/(dashboard)/focus/components/log-hours-dialog";
 import { updateTaskField, deleteTask } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
@@ -197,6 +198,7 @@ export function TaskRow({
   const [isPending, startTransition] = useTransition();
   const [markingDone, setMarkingDone] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
+  const [logHoursOpen, setLogHoursOpen] = useState(false);
   const [optimisticTask, setOptimisticTask] = useOptimistic(
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
@@ -420,22 +422,7 @@ export function TaskRow({
           >
             {timerActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3 fill-current" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5"
-            onClick={() => {
-              const hours = prompt("Log hours:");
-              if (hours) {
-                startTransition(async () => {
-                  await quickLogHours(task.id, Number(hours), todayLocalISO());
-                });
-              }
-            }}
-            title="Log hours manually"
-          >
-            <Clock className="h-3 w-3" />
-          </Button>
+          <LogHoursDialog task={task} variant="icon" className="h-5 w-5" />
         </div>
       </TableCell>
       <TableCell className="text-center">
@@ -558,16 +545,7 @@ export function TaskRow({
                   {timerActive ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
                   {timerActive ? "Pause timer" : timerPaused ? "Resume timer" : "Start timer"}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    const hours = prompt("Log hours:");
-                    if (hours) {
-                      startTransition(async () => {
-                        await quickLogHours(task.id, Number(hours), todayLocalISO());
-                      });
-                    }
-                  }}
-                >
+                <DropdownMenuItem onClick={() => setLogHoursOpen(true)}>
                   <Clock className="mr-2 h-4 w-4" />
                   Log hours
                 </DropdownMenuItem>
@@ -607,6 +585,7 @@ export function TaskRow({
           </div>
         </TableCell>
       </TableRow>
+      <LogHoursDialog task={task} open={logHoursOpen} onOpenChange={setLogHoursOpen} hideTrigger />
     </>
   );
 }

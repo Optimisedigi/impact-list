@@ -57,21 +57,40 @@ interface LogHoursDialogProps {
   task: Task;
   variant?: "icon" | "button";
   className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
-export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHoursDialogProps) {
-  const [open, setOpen] = useState(false);
+export function LogHoursDialog({
+  task,
+  variant = "icon",
+  className = "",
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: LogHoursDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [hours, setHours] = useState("");
   const [entryMode, setEntryMode] = useState<EntryMode>("hours");
   const [sections, setSections] = useState<WorkSection[]>([emptyWorkSection("section-1")]);
   const [nextSectionId, setNextSectionId] = useState(2);
   const [isPending, startTransition] = useTransition();
   const { finishTimer, hasTimer, getAllocatedSeconds } = useTaskTimer();
+  const open = controlledOpen ?? internalOpen;
 
   const sectionHours = calculateSectionHours(sections);
   const parsedHours = parseFloat(hours);
   const hoursToLog = entryMode === "sections" ? sectionHours : parsedHours;
   const canLog = Number.isFinite(hoursToLog) && hoursToLog > 0;
+
+  function setOpen(openState: boolean) {
+    if (onOpenChange) {
+      onOpenChange(openState);
+      return;
+    }
+    setInternalOpen(openState);
+  }
 
   function handleOpenChange(o: boolean) {
     if (o) {
@@ -124,23 +143,25 @@ export function LogHoursDialog({ task, variant = "icon", className = "" }: LogHo
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        {variant === "button" ? (
-          <Button variant="outline" size="sm" className={className}>
-            <Clock className="h-3.5 w-3.5 mr-1.5" />
-            Log Hours
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-5 w-5 text-muted-foreground hover:text-primary ${className}`}
-            title="Log hours"
-          >
-            <Clock className="h-3 w-3" />
-          </Button>
-        )}
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          {variant === "button" ? (
+            <Button variant="outline" size="sm" className={className}>
+              <Clock className="h-3.5 w-3.5 mr-1.5" />
+              Log Hours
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-5 w-5 text-muted-foreground hover:text-primary ${className}`}
+              title="Log hours"
+            >
+              <Clock className="h-3 w-3" />
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">Log Hours</DialogTitle>
