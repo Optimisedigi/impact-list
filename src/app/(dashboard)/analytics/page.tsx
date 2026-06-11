@@ -17,7 +17,6 @@ import {
   getDailyHoursStats,
   getDailyHoursByWeek,
   getDailyHoursByMonth,
-  getDailyLogsByDateRange,
   getRecentDailyLogs,
   getMondayOf,
 } from "@/server/queries/daily-logs";
@@ -41,20 +40,16 @@ function localISO(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function sumHours(logs: { hours: number }[]): number {
-  return logs.reduce((acc, l) => acc + l.hours, 0);
+/** Average of bucket totals, counting only buckets that have logged hours. */
+function averageOfTotals(totals: number[]): number {
+  const active = totals.filter((t) => t > 0);
+  if (active.length === 0) return 0;
+  return active.reduce((acc, t) => acc + t, 0) / active.length;
 }
 
 export default async function AnalyticsPage() {
   const bizContext = await getBusinessContext();
   const startDate = bizContext?.startDate || null;
-
-  const now = new Date();
-  const monday = getMondayOf(now);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   const [
     targets,
@@ -69,8 +64,6 @@ export default async function AnalyticsPage() {
     hoursStats,
     hoursWeekly,
     hoursMonthly,
-    weekLogs,
-    monthLogs,
     recentLogs,
   ] = await Promise.all([
       db.select().from(categoryTargets),
@@ -85,13 +78,27 @@ export default async function AnalyticsPage() {
       getDailyHoursStats(),
       getDailyHoursByWeek(startDate),
       getDailyHoursByMonth(),
-      getDailyLogsByDateRange(localISO(monday), localISO(sunday)),
-      getDailyLogsByDateRange(localISO(monthStart), localISO(monthEnd)),
       getRecentDailyLogs(),
     ]);
   const categoryMap = buildCategoryMap(dbCategories);
   const categoryOptions = buildCategoryOptions(dbCategories);
   const hoursSinceDate = startDate || hoursStats.firstLogDate;
+
+  // Exclude the current (in-progress) week and month so partial periods don't
+  // drag the averages down.
+  const now = new Date();
+  const currentWeekCommencing = localISO(getMondayOf(now));
+  const currentMonth = localISO(now).slice(0, 7);
+
+  const completedWeekTotals = hoursWeekly
+    .filter((w) => w.weekCommencing !== currentWeekCommencing)
+    .map((w) => (w.total as number) ?? 0);
+  const avgPerWeek = averageOfTotals(completedWeekTotals);
+  const loggedWeeks = completedWeekTotals.filter((t) => t > 0).length;
+
+  const completedMonths = hoursMonthly.filter((m) => m.month !== currentMonth);
+  const avgPerMonth = averageOfTotals(completedMonths.map((m) => m.total));
+  const loggedMonths = completedMonths.filter((m) => m.total > 0).length;
 
   const burndown = phase ? await getPhaseBurndown(phase.id) : [];
 
@@ -132,8 +139,10 @@ export default async function AnalyticsPage() {
 
         <HoursStats
           totalHours={hoursStats.totalHours}
-          thisWeekHours={sumHours(weekLogs)}
-          thisMonthHours={sumHours(monthLogs)}
+          avgPerWeek={avgPerWeek}
+          loggedWeeks={loggedWeeks}
+          avgPerMonth={avgPerMonth}
+          loggedMonths={loggedMonths}
           avgPerLoggedDay={hoursStats.avgPerLoggedDay}
           loggedDays={hoursStats.loggedDays}
           sinceDate={hoursSinceDate}

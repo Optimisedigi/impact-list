@@ -7,8 +7,10 @@ function round(value: number): string {
 
 export interface HoursStatsProps {
   totalHours: number;
-  thisWeekHours: number;
-  thisMonthHours: number;
+  avgPerWeek: number;
+  loggedWeeks: number;
+  avgPerMonth: number;
+  loggedMonths: number;
   avgPerLoggedDay: number;
   loggedDays: number;
   sinceDate: string | null;
@@ -16,8 +18,10 @@ export interface HoursStatsProps {
 
 export function HoursStats({
   totalHours,
-  thisWeekHours,
-  thisMonthHours,
+  avgPerWeek,
+  loggedWeeks,
+  avgPerMonth,
+  loggedMonths,
   avgPerLoggedDay,
   loggedDays,
   sinceDate,
@@ -28,8 +32,16 @@ export function HoursStats({
       value: `${round(totalHours)}h`,
       sub: sinceDate ? `since ${formatDate(sinceDate)}` : "all time",
     },
-    { title: "This week", value: `${round(thisWeekHours)}h`, sub: "Mon–Sun" },
-    { title: "This month", value: `${round(thisMonthHours)}h`, sub: "calendar month" },
+    {
+      title: "Avg per week",
+      value: `${round(avgPerWeek)}h`,
+      sub: `${loggedWeeks} week${loggedWeeks === 1 ? "" : "s"} logged`,
+    },
+    {
+      title: "Avg per month",
+      value: `${round(avgPerMonth)}h`,
+      sub: `${loggedMonths} month${loggedMonths === 1 ? "" : "s"} logged`,
+    },
     {
       title: "Avg per logged day",
       value: `${round(avgPerLoggedDay)}h`,
