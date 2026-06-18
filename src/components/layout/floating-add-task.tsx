@@ -150,7 +150,7 @@ export function FloatingAddTask() {
     },
   });
   const [dayHoursError, setDayHoursError] = useState<string | null>(null);
-  const [dayHoursMode, setDayHoursMode] = useState<DayHoursMode>("sections");
+  const [dayHoursMode, setDayHoursMode] = useState<DayHoursMode>("total");
   const [daySections, setDaySections] = useState<WorkSection[]>(createEmptySections(defaultSectionCount));
   const [nextDaySectionId, setNextDaySectionId] = useState(defaultSectionCount + 1);
   const daySectionHours = calculateSectionHours(daySections);
