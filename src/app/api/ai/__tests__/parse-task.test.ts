@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mockGetAllClients = vi.fn()
+const mockGetKimiCredential = vi.fn()
+const mockUpsertKimiCredential = vi.fn()
 
 vi.mock('@/server/actions/clients', () => ({
   getAllClients: () => mockGetAllClients(),
+}))
+
+vi.mock('@/server/actions/ai-credentials', () => ({
+  getKimiCredential: () => mockGetKimiCredential(),
+  upsertKimiCredential: (credential: unknown) => mockUpsertKimiCredential(credential),
 }))
 
 // Stub global fetch
@@ -40,11 +47,14 @@ describe('AI Parse-Task API Route - POST', () => {
       { id: 1, name: 'Acme Corp' },
       { id: 2, name: 'Globex' },
     ])
+    mockGetKimiCredential.mockResolvedValue(null)
     setApiKey('sk-ant-valid-key-12345')
+    process.env.AI_PROVIDER = 'anthropic'
   })
 
   describe('API key validation', () => {
     it('returns 500 when ANTHROPIC_API_KEY is not set', async () => {
+      process.env.AI_PROVIDER = 'anthropic'
       setApiKey(undefined)
 
       const response = await POST(makeRequest({ text: 'some task' }))
@@ -55,6 +65,7 @@ describe('AI Parse-Task API Route - POST', () => {
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is "your-key-here"', async () => {
+      process.env.AI_PROVIDER = 'anthropic'
       setApiKey('your-key-here')
 
       const response = await POST(makeRequest({ text: 'some task' }))
@@ -132,6 +143,7 @@ describe('AI Parse-Task API Route - POST', () => {
 
     it('uses MiniMax when MINIMAX_API_KEY is set', async () => {
       delete process.env.ANTHROPIC_API_KEY
+      process.env.AI_PROVIDER = 'minimax'
       process.env.MINIMAX_API_KEY = 'minimax-valid-key'
 
       const parsedTask = {

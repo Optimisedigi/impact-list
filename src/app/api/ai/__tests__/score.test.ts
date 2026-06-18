@@ -27,6 +27,8 @@ const mockGetActiveGoals = vi.fn()
 const mockGetCurrentTargets = vi.fn()
 const mockGetWeeklyPriorities = vi.fn()
 const mockGetBusinessContext = vi.fn()
+const mockGetKimiCredential = vi.fn()
+const mockUpsertKimiCredential = vi.fn()
 
 vi.mock('@/server/queries/tasks', () => ({
   getAllTasks: () => mockGetAllTasks(),
@@ -46,6 +48,11 @@ vi.mock('@/server/actions/weekly-priorities', () => ({
 
 vi.mock('@/server/actions/business-context', () => ({
   getBusinessContext: () => mockGetBusinessContext(),
+}))
+
+vi.mock('@/server/actions/ai-credentials', () => ({
+  getKimiCredential: () => mockGetKimiCredential(),
+  upsertKimiCredential: (credential: unknown) => mockUpsertKimiCredential(credential),
 }))
 
 // Stub global fetch
@@ -125,11 +132,14 @@ describe('AI Score API Route - POST', () => {
     mockGetCurrentTargets.mockResolvedValue(sampleTargets)
     mockGetWeeklyPriorities.mockResolvedValue(null)
     mockGetBusinessContext.mockResolvedValue(null)
+    mockGetKimiCredential.mockResolvedValue(null)
     setApiKey('sk-ant-valid-key-12345')
+    process.env.AI_PROVIDER = 'anthropic'
   })
 
   describe('API key validation', () => {
     it('returns 500 when ANTHROPIC_API_KEY is not set', async () => {
+      process.env.AI_PROVIDER = 'anthropic'
       setApiKey(undefined)
 
       const response = await POST()
@@ -140,6 +150,7 @@ describe('AI Score API Route - POST', () => {
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is empty string', async () => {
+      process.env.AI_PROVIDER = 'anthropic'
       setApiKey('')
 
       const response = await POST()
@@ -150,6 +161,7 @@ describe('AI Score API Route - POST', () => {
     })
 
     it('returns 500 when ANTHROPIC_API_KEY is "your-key-here"', async () => {
+      process.env.AI_PROVIDER = 'anthropic'
       setApiKey('your-key-here')
 
       const response = await POST()
@@ -223,6 +235,7 @@ describe('AI Score API Route - POST', () => {
 
     it('uses MiniMax when MINIMAX_API_KEY is set', async () => {
       delete process.env.ANTHROPIC_API_KEY
+      process.env.AI_PROVIDER = 'minimax'
       process.env.MINIMAX_API_KEY = 'minimax-valid-key'
 
       const mockFetch = vi.fn().mockResolvedValue({

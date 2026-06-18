@@ -175,6 +175,26 @@ export const calendarAccounts = sqliteTable("calendar_accounts", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const aiCredentials = sqliteTable("ai_credentials", {
+  provider: text("provider").primaryKey(),
+  kind: text("kind", { enum: ["oauth"] }).notNull().default("oauth"),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  tokenExpiresAt: text("token_expires_at").notNull(),
+  clientId: text("client_id").notNull(),
+  scope: text("scope"),
+  deviceId: text("device_id").notNull(),
+  modelId: text("model_id"),
+  modelDisplay: text("model_display"),
+  contextLength: integer("context_length"),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const calendarProfiles = sqliteTable("calendar_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),

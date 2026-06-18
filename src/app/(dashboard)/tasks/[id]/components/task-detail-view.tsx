@@ -42,11 +42,11 @@ export function TaskDetailView({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 flex gap-6 overflow-hidden">
-        <div className="flex-[7] min-h-0 overflow-y-auto">
+      <div className="min-h-0 flex-1 flex flex-col md:flex-row gap-6 overflow-hidden">
+        <div className="flex-[3] md:flex-[7] min-h-0 overflow-y-auto">
           <NotesEditor taskId={task.id} initialContent={task.notes} />
         </div>
-        <div className="flex-[3] min-h-0 overflow-y-auto space-y-4">
+        <div className="flex-[5] md:flex-[3] min-h-0 overflow-y-auto space-y-4">
           <TaskMetadataSidebar
             task={task}
             clientOptions={clientOptions}

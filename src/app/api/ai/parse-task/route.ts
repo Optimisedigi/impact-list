@@ -3,7 +3,7 @@ import { getAllClients } from "@/server/actions/clients";
 import { chatCompletion, isAIConfigured } from "@/lib/ai-provider";
 
 export async function POST(request: Request) {
-  if (!isAIConfigured()) {
+  if (!(await isAIConfigured())) {
     return NextResponse.json(
       { error: "AI provider not configured. See .env.example for setup." },
       { status: 500 }

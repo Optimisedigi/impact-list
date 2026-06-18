@@ -98,7 +98,7 @@ export function NotesEditor({
     editorProps: {
       attributes: {
         class:
-          "prose dark:prose-invert prose-sm max-w-none min-h-[300px] focus:outline-none p-4",
+          "prose dark:prose-invert prose-sm max-w-none min-h-[150px] md:min-h-[300px] focus:outline-none p-4",
       },
     },
     onUpdate: ({ editor }) => {

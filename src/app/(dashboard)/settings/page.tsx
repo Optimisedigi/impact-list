@@ -9,6 +9,7 @@ import { ClientManager } from "./components/client-manager";
 import { RecurringTasksManager } from "./components/recurring-tasks-manager";
 import { CategoryManager } from "./components/category-manager";
 import { CalendarSettingsCard } from "./components/calendar-settings-card";
+import { AiAuthCard } from "./components/ai-auth-card";
 import { CsvImportDialog } from "../tasks/components/csv-import-dialog";
 import { getAllCategories } from "@/server/actions/categories";
 import { getBusinessContext } from "@/server/actions/business-context";
@@ -17,6 +18,7 @@ import { buildCategoryOptions } from "@/lib/constants";
 import { getAccountsWithSubscriptions } from "@/server/queries/calendar-accounts";
 import { getProfiles } from "@/server/queries/calendar-profiles";
 import { getResolvedColors } from "@/server/queries/calendar-color-labels";
+import { getKimiConnectionStatus } from "@/server/actions/ai-credentials";
 
 export default async function SettingsPage() {
   const [
@@ -29,6 +31,7 @@ export default async function SettingsPage() {
     calendarAccounts,
     calendarProfiles,
     calendarColors,
+    kimiStatus,
   ] = await Promise.all([
     db.select().from(categoryTargets),
     getAllPhases(),
@@ -39,6 +42,7 @@ export default async function SettingsPage() {
     getAccountsWithSubscriptions(),
     getProfiles(),
     getResolvedColors(),
+    getKimiConnectionStatus(),
   ]);
   const clientNames = clients.map((c) => c.name);
   const categoryLabels = dbCategories.map((c) => c.label);
@@ -55,6 +59,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <AiAuthCard status={kimiStatus} />
         <BusinessContextForm initial={bizContext} />
         <GrowthPhasesManager phases={phases} />
         <CategoryTargetsForm targets={targets} categoryOptions={categoryOptions} />

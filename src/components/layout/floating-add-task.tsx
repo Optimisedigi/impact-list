@@ -113,7 +113,13 @@ const dayHoursSchema = z.object({
 
 type DayHoursFormData = z.infer<typeof dayHoursSchema>;
 
+import { usePathname } from "next/navigation";
+
 export function FloatingAddTask() {
+  const pathname = usePathname();
+  // Hide on task detail pages (mobile form overlap)
+  if (pathname.startsWith("/tasks/")) return null;
+  
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
   const [catOptions, setCatOptions] = useState<CategoryOption[]>([]);
