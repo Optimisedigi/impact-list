@@ -64,5 +64,9 @@ scripts/import-calendar-csv-dry.mjs
 local-replica.db*
 local.db*
 
+# Syncthing conflict files
+*.sync-conflict-*
+.sync-conflict-*
+
 # Screenshots in public
 /public/Screenshot*.png
