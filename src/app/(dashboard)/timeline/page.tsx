@@ -1,7 +1,7 @@
 import { getAllCategories } from "@/server/actions/categories";
 import { getTimelineCandidateTasks, getTimelineTasks, type TimelineTask } from "@/server/queries/timeline";
 import { buildCategoryMap } from "@/lib/constants";
-import { TimelineChart } from "./components/timeline-chart";
+import { TimelineViewSwitcher } from "./components/timeline-view-switcher";
 import type { Category } from "@/types";
 
 function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
@@ -24,15 +24,7 @@ export default async function TimelinePage() {
 
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col overflow-hidden">
-      <div className="shrink-0 pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Timeline</h1>
-        <p className="text-sm text-muted-foreground">
-          Plan major projects across weekly columns, with a today marker and a few weeks of recent context.
-        </p>
-      </div>
-      <div className="min-h-0 flex-1">
-        <TimelineChart tasks={tasks} allTasks={allTasks} categoryMap={categoryMap} clients={clients} />
-      </div>
+      <TimelineViewSwitcher tasks={tasks} allTasks={allTasks} categoryMap={categoryMap} clients={clients} />
     </div>
   );
 }
