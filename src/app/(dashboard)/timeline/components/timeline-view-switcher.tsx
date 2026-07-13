@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { TimelineChart } from "./timeline-chart";
 import { MultitaskView } from "./multitask-view";
 import type { TimelineTask } from "@/server/queries/timeline";
+import type { MultitaskColumn } from "@/server/actions/multitask-columns";
 
 type TimelineView = "timeline" | "multitask";
 
@@ -13,6 +14,7 @@ interface TimelineViewSwitcherProps {
   allTasks: TimelineTask[];
   categoryMap: Record<string, { label: string; color: string }>;
   clients: string[];
+  initialMultitaskColumns: MultitaskColumn[];
 }
 
 const VIEWS: { value: TimelineView; label: string }[] = [
@@ -25,6 +27,7 @@ export function TimelineViewSwitcher({
   allTasks,
   categoryMap,
   clients,
+  initialMultitaskColumns,
 }: TimelineViewSwitcherProps) {
   const [view, setView] = useState<TimelineView>("timeline");
 
@@ -59,7 +62,7 @@ export function TimelineViewSwitcher({
         {view === "timeline" ? (
           <TimelineChart tasks={tasks} allTasks={allTasks} categoryMap={categoryMap} clients={clients} />
         ) : (
-          <MultitaskView tasks={allTasks} />
+          <MultitaskView tasks={allTasks} initialColumns={initialMultitaskColumns} />
         )}
       </div>
     </div>

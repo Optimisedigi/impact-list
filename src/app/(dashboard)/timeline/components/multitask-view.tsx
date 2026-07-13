@@ -11,18 +11,22 @@ import {
 import { NotesEditor } from "@/app/(dashboard)/tasks/[id]/components/notes-editor";
 import { cn } from "@/lib/utils";
 import type { TimelineTask } from "@/server/queries/timeline";
+import {
+  addMultitaskColumn,
+  removeMultitaskColumn,
+  renameMultitaskColumn,
+  type MultitaskColumn,
+} from "@/server/actions/multitask-columns";
 
 interface MultitaskViewProps {
   tasks: TimelineTask[];
+  initialColumns: MultitaskColumn[];
 }
 
-interface Column {
-  taskId: number;
-  name: string;
-}
+type Column = MultitaskColumn;
 
-export function MultitaskView({ tasks }: MultitaskViewProps) {
-  const [columns, setColumns] = useState<Column[]>([]);
+export function MultitaskView({ tasks, initialColumns }: MultitaskViewProps) {
+  const [columns, setColumns] = useState<Column[]>(initialColumns);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -51,10 +55,12 @@ export function MultitaskView({ tasks }: MultitaskViewProps) {
     setColumns((current) => [...current, { taskId: task.id, name: task.title }]);
     setQuery("");
     setPickerOpen(false);
+    void addMultitaskColumn(task.id, task.title);
   }
 
   function removeColumn(taskId: number): void {
     setColumns((current) => current.filter((c) => c.taskId !== taskId));
+    void removeMultitaskColumn(taskId);
   }
 
   function startRename(column: Column): void {
@@ -68,15 +74,16 @@ export function MultitaskView({ tasks }: MultitaskViewProps) {
     if (committingRef.current) return;
     committingRef.current = true;
     const trimmed = editValue.trim();
-    setColumns((current) =>
-      current.map((c) =>
-        c.taskId === taskId
-          ? { ...c, name: trimmed || taskById.get(taskId)?.title || c.name }
-          : c
+    const current = columns.find((c) => c.taskId === taskId);
+    const resolvedName = trimmed || taskById.get(taskId)?.title || current?.name || editValue;
+    setColumns((prev) =>
+      prev.map((c) =>
+        c.taskId === taskId ? { ...c, name: resolvedName } : c
       )
     );
     setEditingId(null);
     setEditValue("");
+    void renameMultitaskColumn(taskId, resolvedName);
   }
 
   function cancelRename(): void {

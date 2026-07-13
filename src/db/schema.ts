@@ -280,3 +280,16 @@ export const categoryTargets = sqliteTable("category_targets", {
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
 });
+
+export const multitaskColumns = sqliteTable("multitask_columns", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  taskId: integer("task_id").notNull().unique(),
+  name: text("name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
