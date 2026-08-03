@@ -16,18 +16,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "./priority-badge";
 import { LogHoursDialog } from "@/app/(dashboard)/focus/components/log-hours-dialog";
-import { updateTaskField, deleteTask } from "@/server/actions/tasks";
+import { updateTaskField, deleteTask, sendToFocus } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
 import type { Task } from "@/types";
 import { daysLeft, formatDateShort, todayLocalISO } from "@/lib/time-utils";
-import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink, Check, FileText } from "lucide-react";
+import { MoreHorizontal, Trash2, Clock, Play, Pause, Copy, Repeat, ExternalLink, Check, FileText, Target } from "lucide-react";
 import Link from "next/link";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import type { CopiedCell } from "./task-table";
@@ -439,6 +440,15 @@ export function TaskRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => startTransition(() => { sendToFocus(task.id, "this_week"); })}>
+              <Target className="mr-2 h-4 w-4" />
+              Send to Focus (This Week)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => startTransition(() => { sendToFocus(task.id, "today"); })}>
+              <Target className="mr-2 h-4 w-4" />
+              Send to Focus (Top Priority)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onCopyCell({ field: "category", value: optimisticTask.category })}>
               <Copy className="mr-2 h-4 w-4" />
               Copy Category
@@ -553,6 +563,15 @@ export function TaskRow({
                   <Check className="mr-2 h-4 w-4" />
                   Mark as done
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => startTransition(() => { sendToFocus(task.id, "this_week"); })}>
+                  <Target className="mr-2 h-4 w-4" />
+                  Send to Focus (This Week)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => startTransition(() => { sendToFocus(task.id, "today"); })}>
+                  <Target className="mr-2 h-4 w-4" />
+                  Send to Focus (Top Priority)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onCopyCell({ field: "category", value: optimisticTask.category })}>
                   <Copy className="mr-2 h-4 w-4" />
                   Copy Category

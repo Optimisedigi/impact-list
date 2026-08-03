@@ -193,6 +193,25 @@ async function pinTopSlots(ids: number[]) {
   }
 }
 
+/**
+ * Put a task onto the Focus board from elsewhere in the app. "today" lands it in
+ * the Top Priority cards, "this_week" in the This Week queue (at the bottom).
+ */
+export async function sendToFocus(id: number, when: "today" | "this_week") {
+  const [{ maxOrder }] = await db.select({ maxOrder: max(tasks.sortOrder) }).from(tasks);
+  await db
+    .update(tasks)
+    .set({
+      toComplete: when,
+      dismissedFromFocus: null,
+      unnumberedInFocus: null,
+      sortOrder: (maxOrder ?? 0) + 1,
+    })
+    .where(eq(tasks.id, id));
+  revalidatePath("/focus");
+  revalidatePath("/tasks");
+}
+
 export async function promoteToTopPriority(id: number) {
   await db
     .update(tasks)
