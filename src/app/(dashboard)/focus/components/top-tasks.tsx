@@ -141,6 +141,9 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   <GripVertical className="h-4 w-4" />
                 </button>
               )}
+              <span className="rounded border border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums shrink-0" title="Focus priority">
+                #{index + 1}
+              </span>
               <Badge
                 variant="outline"
                 className="border-0 text-xs"

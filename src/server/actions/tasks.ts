@@ -186,6 +186,34 @@ export async function promoteToTopPriority(id: number) {
   revalidatePath("/focus");
 }
 
+/**
+ * Promote a task into the Top Priority cards at a specific slot.
+ * Top cards are ordered by sortOrder first, so the task is spliced into the
+ * current top ordering at `slotIndex` and the whole focus list is renumbered.
+ */
+export async function promoteToTopPriorityAt(id: number, slotIndex: number, topIds: number[]) {
+  await db
+    .update(tasks)
+    .set({ toComplete: "today", dismissedFromFocus: null })
+    .where(eq(tasks.id, id));
+
+  const ordered = topIds.filter((tid) => tid !== id);
+  const slot = Math.max(0, Math.min(slotIndex, ordered.length));
+  ordered.splice(slot, 0, id);
+
+  const { getThisWeekTasks } = await import("@/server/queries/analytics");
+  const restIds = (await getThisWeekTasks())
+    .map((t) => t.id)
+    .filter((tid) => !ordered.includes(tid));
+
+  const finalIds = [...ordered, ...restIds];
+  for (let i = 0; i < finalIds.length; i++) {
+    await db.update(tasks).set({ sortOrder: i + 1 }).where(eq(tasks.id, finalIds[i]));
+  }
+
+  revalidatePath("/focus");
+}
+
 export async function dismissFromFocus(id: number) {
   await db
     .update(tasks)

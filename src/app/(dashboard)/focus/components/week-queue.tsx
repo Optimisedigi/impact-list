@@ -9,7 +9,7 @@ import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock } from "lucide-react";
-import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority } from "@/server/actions/tasks";
+import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, promoteToTopPriorityAt } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { LogHoursDialog } from "./log-hours-dialog";
@@ -34,7 +34,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useFocusDnd } from "./focus-dnd-provider";
 
-function SortableQueueItem({ task, isOverdue, index, count, onMovePosition }: { task: Task; isOverdue?: boolean; index: number; count: number; onMovePosition: (taskId: number, newIndex: number) => void }) {
+function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePosition }: { task: Task; isOverdue?: boolean; position: number; positionCount: number; onMovePosition: (taskId: number, newIndex: number) => void }) {
   const {
     attributes,
     listeners,
@@ -53,7 +53,7 @@ function SortableQueueItem({ task, isOverdue, index, count, onMovePosition }: { 
 
   return (
     <div ref={setNodeRef} style={style}>
-      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={index + 1} positionCount={count} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} />
+      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} />
     </div>
   );
 }
@@ -359,7 +359,8 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
   );
 }
 
-export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; overdueIds?: Set<number>; overdueTasks?: Task[] }) {
+export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [] }: { tasks: Task[]; overdueIds?: Set<number>; overdueTasks?: Task[]; topTaskIds?: number[] }) {
+  const positionOffset = topTaskIds.length;
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
   const { registerReorder } = useFocusDnd();
@@ -402,6 +403,19 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
     });
   }
 
+  // Position numbers are global across the focus page: 1..offset are the top-priority
+  // cards, the queue continues from offset+1. Picking a top slot promotes the task
+  // into that exact card position.
+  function selectPosition(taskId: number, globalIndex: number) {
+    if (globalIndex < positionOffset) {
+      startTransition(async () => {
+        await promoteToTopPriorityAt(taskId, globalIndex, topTaskIds);
+      });
+      return;
+    }
+    moveToPosition(taskId, globalIndex - positionOffset);
+  }
+
   const hasOverdue = overdueTasks && overdueTasks.length > 0;
   const isEmpty = items.length === 0 && !hasOverdue;
 
@@ -430,7 +444,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
               <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {items.map((task, index) => (
-                    <SortableQueueItem key={task.id} task={task} index={index} count={items.length} onMovePosition={moveToPosition} isOverdue={overdueIds?.has(task.id)} />
+                    <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} isOverdue={overdueIds?.has(task.id)} />
                   ))}
                 </div>
               </SortableContext>

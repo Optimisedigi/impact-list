@@ -69,7 +69,7 @@ export default async function FocusPage() {
             />
           </div>
           <div className="order-1 md:order-2">
-            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} />
+            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} />
           </div>
         </div>
       </FocusDndProvider>
