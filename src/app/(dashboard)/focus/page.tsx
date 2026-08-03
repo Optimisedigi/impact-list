@@ -39,7 +39,9 @@ export default async function FocusPage() {
   const topIds = new Set(topTasks.map((t) => t.id));
   const topAndWeekIds = new Set([...topTasks.map((t) => t.id), ...weekTasks.map((t) => t.id)]);
   const standaloneOverdue = overdueTasks.filter((t) => !topAndWeekIds.has(t.id));
-  const filteredWeekTasks = weekTasks.filter((t) => !topIds.has(t.id));
+  const focusWeekTasks = weekTasks.filter((t) => !topIds.has(t.id));
+  const filteredWeekTasks = focusWeekTasks.filter((t) => !t.unnumberedInFocus);
+  const unnumberedWeekTasks = focusWeekTasks.filter((t) => t.unnumberedInFocus);
 
   return (
     <div className="space-y-4 md:space-y-6 min-w-0">
@@ -69,7 +71,7 @@ export default async function FocusPage() {
             />
           </div>
           <div className="order-1 md:order-2">
-            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} />
+            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} unnumberedTasks={unnumberedWeekTasks} />
           </div>
         </div>
       </FocusDndProvider>

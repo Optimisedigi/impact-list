@@ -52,6 +52,7 @@ export async function getTopTasksByLeverage(limit = 3) {
       and(
         ne(tasks.status, "done"),
         isNull(tasks.dismissedFromFocus),
+        isNull(tasks.unnumberedInFocus),
         eq(tasks.toComplete, "today")
       )
     )
@@ -70,6 +71,7 @@ export async function getTopTasksByLeverage(limit = 3) {
       and(
         ne(tasks.status, "done"),
         isNull(tasks.dismissedFromFocus),
+        isNull(tasks.unnumberedInFocus),
         ...(todayIds.length > 0 ? [sql`${tasks.id} NOT IN (${sql.join(todayIds.map(id => sql`${id}`), sql`, `)})`] : [])
       )
     )

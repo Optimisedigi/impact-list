@@ -22,6 +22,7 @@ export const tasks = sqliteTable("tasks", {
   completedAt: text("completed_at"),
   recurringTaskId: integer("recurring_task_id").references(() => recurringTasks.id),
   dismissedFromFocus: text("dismissed_from_focus"),
+  unnumberedInFocus: text("unnumbered_in_focus"),
   notes: text("notes"),
   sortOrder: integer("sort_order").default(0),
   createdAt: text("created_at")

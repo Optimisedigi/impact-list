@@ -9,7 +9,7 @@ import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock } from "lucide-react";
-import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, promoteToTopPriorityAt } from "@/server/actions/tasks";
+import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, promoteToTopPriorityAt, removeFocusNumber, restoreFocusNumber } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { LogHoursDialog } from "./log-hours-dialog";
@@ -23,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -34,7 +35,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useFocusDnd } from "./focus-dnd-provider";
 
-function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePosition }: { task: Task; isOverdue?: boolean; position: number; positionCount: number; onMovePosition: (taskId: number, newIndex: number) => void }) {
+function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePosition, onRemoveNumber }: { task: Task; isOverdue?: boolean; position: number; positionCount: number; onMovePosition: (taskId: number, newIndex: number) => void; onRemoveNumber?: () => void }) {
   const {
     attributes,
     listeners,
@@ -53,12 +54,12 @@ function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePos
 
   return (
     <div ref={setNodeRef} style={style}>
-      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} />
+      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} onRemoveNumber={onRemoveNumber} />
     </div>
   );
 }
 
-function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, positionCount, onMovePosition }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; position?: number; positionCount?: number; onMovePosition?: (newIndex: number) => void }) {
+function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, positionCount, onMovePosition, onRemoveNumber, onRestoreNumber }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; position?: number; positionCount?: number; onMovePosition?: (newIndex: number) => void; onRemoveNumber?: () => void; onRestoreNumber?: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
@@ -170,8 +171,25 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
                   {i + 1}
                 </DropdownMenuItem>
               ))}
+              {onRemoveNumber && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onRemoveNumber} className="justify-center text-xs text-muted-foreground">
+                    Remove number
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : onRestoreNumber ? (
+          <button
+            type="button"
+            onClick={onRestoreNumber}
+            className="shrink-0 cursor-pointer rounded border border-dashed border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60 outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
+            title="Add a priority number"
+          >
+            #
+          </button>
         ) : null}
         {dragListeners && (
           <button
@@ -359,7 +377,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
   );
 }
 
-export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [] }: { tasks: Task[]; overdueIds?: Set<number>; overdueTasks?: Task[]; topTaskIds?: number[] }) {
+export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], unnumberedTasks = [] }: { tasks: Task[]; overdueIds?: Set<number>; overdueTasks?: Task[]; topTaskIds?: number[]; unnumberedTasks?: Task[] }) {
   const positionOffset = topTaskIds.length;
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
@@ -416,8 +434,21 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [] }: 
     moveToPosition(taskId, globalIndex - positionOffset);
   }
 
+  function handleRemoveNumber(taskId: number) {
+    setItems((prev) => prev.filter((t) => t.id !== taskId));
+    startTransition(async () => {
+      await removeFocusNumber(taskId);
+    });
+  }
+
+  function handleRestoreNumber(taskId: number) {
+    startTransition(async () => {
+      await restoreFocusNumber(taskId);
+    });
+  }
+
   const hasOverdue = overdueTasks && overdueTasks.length > 0;
-  const isEmpty = items.length === 0 && !hasOverdue;
+  const isEmpty = items.length === 0 && !hasOverdue && unnumberedTasks.length === 0;
 
   return (
     <Card className="glass">
@@ -429,6 +460,15 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [] }: 
           <p className="text-sm text-muted-foreground">No tasks due this week.</p>
         ) : (
           <div className="space-y-3">
+            {items.length > 0 && (
+              <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {items.map((task, index) => (
+                    <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} onRemoveNumber={() => handleRemoveNumber(task.id)} isOverdue={overdueIds?.has(task.id)} />
+                  ))}
+                </div>
+              </SortableContext>
+            )}
             {hasOverdue && (
               <div className="space-y-2">
                 <h4 className="flex items-center gap-1.5 text-xs font-medium text-red-400 uppercase tracking-wider">
@@ -440,14 +480,12 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [] }: 
                 ))}
               </div>
             )}
-            {items.length > 0 && (
-              <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
-                  {items.map((task, index) => (
-                    <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} isOverdue={overdueIds?.has(task.id)} />
-                  ))}
-                </div>
-              </SortableContext>
+            {unnumberedTasks.length > 0 && (
+              <div className="space-y-2">
+                {unnumberedTasks.map((task) => (
+                  <QueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} onRestoreNumber={() => handleRestoreNumber(task.id)} />
+                ))}
+              </div>
             )}
           </div>
         )}

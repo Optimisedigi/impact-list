@@ -181,7 +181,7 @@ export async function reorderFocusTasks(orderedIds: number[]) {
 export async function promoteToTopPriority(id: number) {
   await db
     .update(tasks)
-    .set({ toComplete: "today", dismissedFromFocus: null })
+    .set({ toComplete: "today", dismissedFromFocus: null, unnumberedInFocus: null })
     .where(eq(tasks.id, id));
   revalidatePath("/focus");
 }
@@ -194,7 +194,7 @@ export async function promoteToTopPriority(id: number) {
 export async function promoteToTopPriorityAt(id: number, slotIndex: number, topIds: number[]) {
   await db
     .update(tasks)
-    .set({ toComplete: "today", dismissedFromFocus: null })
+    .set({ toComplete: "today", dismissedFromFocus: null, unnumberedInFocus: null })
     .where(eq(tasks.id, id));
 
   const ordered = topIds.filter((tid) => tid !== id);
@@ -211,6 +211,25 @@ export async function promoteToTopPriorityAt(id: number, slotIndex: number, topI
     await db.update(tasks).set({ sortOrder: i + 1 }).where(eq(tasks.id, finalIds[i]));
   }
 
+  revalidatePath("/focus");
+}
+
+/** Drop a task out of the numbered focus ordering; it still shows in This Week. */
+export async function removeFocusNumber(id: number) {
+  await db
+    .update(tasks)
+    .set({ unnumberedInFocus: new Date().toISOString(), sortOrder: 0 })
+    .where(eq(tasks.id, id));
+  revalidatePath("/focus");
+}
+
+/** Put an unnumbered task back into the focus ordering, at the bottom. */
+export async function restoreFocusNumber(id: number) {
+  const [{ maxOrder }] = await db.select({ maxOrder: max(tasks.sortOrder) }).from(tasks);
+  await db
+    .update(tasks)
+    .set({ unnumberedInFocus: null, sortOrder: (maxOrder ?? 0) + 1 })
+    .where(eq(tasks.id, id));
   revalidatePath("/focus");
 }
 
