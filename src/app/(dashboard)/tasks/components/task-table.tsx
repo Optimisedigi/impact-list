@@ -89,19 +89,32 @@ export function TaskTable({ tasks, clientOptions, categoryMap, categoryOptions, 
   const [copiedCell, setCopiedCell] = useState<CopiedCell | null>(null);
   const [activeHighlightId, setActiveHighlightId] = useState(highlightId);
 
-  // Scroll to highlighted task and clear after animation
+  // Scroll to the task linked from another page. The row may not be laid out on
+  // the first frame, so retry across a few frames until it exists. The highlight
+  // class stays applied; its animation pulses, then settles into a soft tint so
+  // the task remains easy to spot.
   useEffect(() => {
     if (!highlightId) return;
     setActiveHighlightId(highlightId);
-    const timer = setTimeout(() => {
-      // Prefer the visible mobile row on small screens, fallback to desktop row
-      const mobileRow = document.querySelector(`[data-task-id="${highlightId}"].md\\:hidden`);
-      const desktopRow = document.querySelector(`[data-task-id="${highlightId}"]:not(.md\\:hidden)`);
-      const row = mobileRow || desktopRow;
-      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-    const clearTimer = setTimeout(() => setActiveHighlightId(undefined), 3500);
-    return () => { clearTimeout(timer); clearTimeout(clearTimer); };
+
+    let attempts = 0;
+    let raf = 0;
+    function scrollToRow() {
+      attempts++;
+      // Prefer whichever row is actually visible at this breakpoint
+      const rows = Array.from(
+        document.querySelectorAll<HTMLElement>(`[data-task-id="${highlightId}"]`)
+      );
+      const row = rows.find((el) => el.offsetParent !== null) ?? rows[0];
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (attempts < 30) raf = requestAnimationFrame(scrollToRow);
+    }
+    raf = requestAnimationFrame(scrollToRow);
+
+    return () => cancelAnimationFrame(raf);
   }, [highlightId]);
 
   // Keyboard shortcut handler for Cmd+C / Cmd+V

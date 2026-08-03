@@ -9,12 +9,13 @@ import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
 import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock } from "lucide-react";
-import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, promoteToTopPriorityAt, removeFocusNumber, restoreFocusNumber } from "@/server/actions/tasks";
+import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, setFocusPosition, removeFocusNumber, restoreFocusNumber } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { LogHoursDialog } from "./log-hours-dialog";
 import { QuickAddTask } from "./quick-add-task";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type DraggableAttributes,
   type DraggableSyntheticListeners,
@@ -35,7 +36,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useFocusDnd } from "./focus-dnd-provider";
 
-function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePosition, onRemoveNumber }: { task: Task; isOverdue?: boolean; position: number; positionCount: number; onMovePosition: (taskId: number, newIndex: number) => void; onRemoveNumber?: () => void }) {
+function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePosition, onRemoveNumber, onMoveUp }: { task: Task; isOverdue?: boolean; position: number; positionCount: number; onMovePosition: (taskId: number, newIndex: number) => void; onRemoveNumber?: () => void; onMoveUp?: () => void }) {
   const {
     attributes,
     listeners,
@@ -54,15 +55,34 @@ function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePos
 
   return (
     <div ref={setNodeRef} style={style}>
-      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} onRemoveNumber={onRemoveNumber} />
+      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} onRemoveNumber={onRemoveNumber} onMoveUp={onMoveUp} />
     </div>
   );
 }
 
-function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, positionCount, onMovePosition, onRemoveNumber, onRestoreNumber }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; position?: number; positionCount?: number; onMovePosition?: (newIndex: number) => void; onRemoveNumber?: () => void; onRestoreNumber?: () => void }) {
+function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, positionCount, onMovePosition, onRemoveNumber, onRestoreNumber, onMoveUp }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; position?: number; positionCount?: number; onMovePosition?: (newIndex: number) => void; onRemoveNumber?: () => void; onRestoreNumber?: () => void; onMoveUp?: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const router = useRouter();
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A dblclick also fires two clicks, so hold navigation briefly to see if a
+  // second click arrives — one click opens the task, two edits the title.
+  function handleTitleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      setEditingTitle(true);
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      router.push(`/tasks?highlight=${task.id}`);
+    }, 220);
+  }
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [optimisticTask, setOptimisticTask] = useOptimistic(
     task,
@@ -71,6 +91,16 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
   const submittedDeadlineRef = useRef(task.deadline ?? null);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
+
+  function handleTitleChange(value: string) {
+    setEditingTitle(false);
+    const next = value.trim();
+    if (!next || next === task.title) return;
+    startTransition(async () => {
+      setOptimisticTask({ title: next } as Partial<Task>);
+      await updateTaskField(task.id, "title", next);
+    });
+  }
 
   function handleDeadlineChange(value: string) {
     setEditingDeadline(false);
@@ -204,9 +234,27 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           className="h-2 w-2 rounded-full shrink-0 mt-1.5"
           style={{ backgroundColor: cat.color }}
         />
-        <Link href={`/tasks?highlight=${task.id}`} className="text-sm hover:underline break-words min-w-0 flex-1" title={task.title}>
-          {task.title}
-        </Link>
+        {editingTitle ? (
+          <input
+            autoFocus
+            defaultValue={optimisticTask.title}
+            onBlur={(e) => handleTitleChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              if (e.key === "Escape") setEditingTitle(false);
+            }}
+            className="text-sm min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+          />
+        ) : (
+          <Link
+            href={`/tasks?highlight=${task.id}`}
+            onClick={handleTitleClick}
+            className="text-sm hover:underline break-words min-w-0 flex-1"
+            title="Double-click to rename"
+          >
+            {optimisticTask.title}
+          </Link>
+        )}
         {task.recurringTaskId && (
           <Repeat className="h-3 w-3 shrink-0 text-muted-foreground mt-1" />
         )}
@@ -286,12 +334,16 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           size="icon"
           className="h-5 w-5 text-muted-foreground hover:text-primary"
           onClick={() => {
+            if (onMoveUp) {
+              onMoveUp();
+              return;
+            }
             startTransition(async () => {
               await promoteToTopPriority(task.id);
             });
           }}
-          disabled={isPending}
-          title="Move to top priority"
+          disabled={isPending || (onMoveUp && position === 1)}
+          title={onMoveUp ? "Move up one position" : "Move to top priority"}
         >
           <ArrowUpToLine className="h-3 w-3" />
         </Button>
@@ -354,6 +406,10 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
+              if (onMoveUp) {
+                onMoveUp();
+                return;
+              }
               startTransition(async () => {
                 await promoteToTopPriority(task.id);
               });
@@ -361,7 +417,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
             disabled={isPending}
           >
             <ArrowUpToLine className="mr-2 h-4 w-4" />
-            Move to top priority
+            {onMoveUp ? "Move up one position" : "Move to top priority"}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={startConfirm}>
             <Check className="mr-2 h-4 w-4" />
@@ -427,7 +483,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
   function selectPosition(taskId: number, globalIndex: number) {
     if (globalIndex < positionOffset) {
       startTransition(async () => {
-        await promoteToTopPriorityAt(taskId, globalIndex, topTaskIds);
+        await setFocusPosition(taskId, globalIndex, [...topTaskIds, ...itemsRef.current.map((t) => t.id)], positionOffset);
       });
       return;
     }
@@ -464,7 +520,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
               <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {items.map((task, index) => (
-                    <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} onRemoveNumber={() => handleRemoveNumber(task.id)} isOverdue={overdueIds?.has(task.id)} />
+                    <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} onRemoveNumber={() => handleRemoveNumber(task.id)} onMoveUp={() => selectPosition(task.id, positionOffset + index - 1)} isOverdue={overdueIds?.has(task.id)} />
                   ))}
                 </div>
               </SortableContext>

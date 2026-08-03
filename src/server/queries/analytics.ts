@@ -61,7 +61,10 @@ export async function getTopTasksByLeverage(limit = 3) {
 
   if (todayTasks.length >= limit) return todayTasks.slice(0, limit);
 
-  // 2. Fill remaining slots with highest leverage tasks (excluding already-picked)
+  // 2. Fill remaining slots with highest leverage tasks (excluding already-picked).
+  // Deliberately NOT ordered by sortOrder: the focus board renumbers sortOrder
+  // whenever the queue is reordered, and letting that drive the fill would pull
+  // arbitrary queue tasks into the top cards on every reorder.
   const todayIds = todayTasks.map((t) => t.id);
   const remaining = limit - todayTasks.length;
   const leverageFill = await db
@@ -75,7 +78,7 @@ export async function getTopTasksByLeverage(limit = 3) {
         ...(todayIds.length > 0 ? [sql`${tasks.id} NOT IN (${sql.join(todayIds.map(id => sql`${id}`), sql`, `)})`] : [])
       )
     )
-    .orderBy(asc(tasks.sortOrder), desc(tasks.leverageScore), desc(tasks.priorityScore))
+    .orderBy(desc(tasks.leverageScore), desc(tasks.priorityScore), asc(tasks.sortOrder))
     .limit(remaining);
 
   return [...todayTasks, ...leverageFill];

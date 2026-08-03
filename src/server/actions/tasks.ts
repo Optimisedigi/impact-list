@@ -168,14 +168,29 @@ export async function createFocusTask(input: {
   return created;
 }
 
-export async function reorderFocusTasks(orderedIds: number[]) {
+export async function reorderFocusTasks(orderedIds: number[], topSlotIds?: number[]) {
   for (let i = 0; i < orderedIds.length; i++) {
     await db
       .update(tasks)
       .set({ sortOrder: i + 1 })
       .where(eq(tasks.id, orderedIds[i]));
   }
+  if (topSlotIds?.length) await pinTopSlots(topSlotIds);
   revalidatePath("/focus");
+}
+
+/**
+ * Mark tasks occupying Top Priority slots as "today" so their manual ordering
+ * survives a refetch — `getTopTasksByLeverage` only honours sortOrder for tasks
+ * flagged this way, and orders the remaining fill by leverage score.
+ */
+async function pinTopSlots(ids: number[]) {
+  for (const id of ids) {
+    await db
+      .update(tasks)
+      .set({ toComplete: "today", dismissedFromFocus: null, unnumberedInFocus: null })
+      .where(eq(tasks.id, id));
+  }
 }
 
 export async function promoteToTopPriority(id: number) {
@@ -187,26 +202,51 @@ export async function promoteToTopPriority(id: number) {
 }
 
 /**
- * Promote a task into the Top Priority cards at a specific slot.
- * Top cards are ordered by sortOrder first, so the task is spliced into the
- * current top ordering at `slotIndex` and the whole focus list is renumbered.
+ * Move a task to an absolute position in the focus board's numbering, where
+ * positions 1..topCount are the Top Priority cards and the rest is the This Week
+ * queue. `visibleIds` is the current on-screen order (top cards, then queue).
+ *
+ * Crossing the Top Priority boundary flips the task's `toComplete` flag, since
+ * the top cards are drawn from tasks marked "today".
  */
-export async function promoteToTopPriorityAt(id: number, slotIndex: number, topIds: number[]) {
-  await db
-    .update(tasks)
-    .set({ toComplete: "today", dismissedFromFocus: null, unnumberedInFocus: null })
-    .where(eq(tasks.id, id));
+export async function setFocusPosition(
+  id: number,
+  globalIndex: number,
+  visibleIds: number[],
+  topCount: number
+) {
+  const currentIndex = visibleIds.indexOf(id);
+  const reordered = visibleIds.filter((tid) => tid !== id);
+  const target = Math.max(0, Math.min(globalIndex, reordered.length));
+  reordered.splice(target, 0, id);
 
-  const ordered = topIds.filter((tid) => tid !== id);
-  const slot = Math.max(0, Math.min(slotIndex, ordered.length));
-  ordered.splice(slot, 0, id);
+  const wasTop = currentIndex !== -1 && currentIndex < topCount;
+  const isTop = target < topCount;
+  if (isTop) {
+    await db
+      .update(tasks)
+      .set({ toComplete: "today", dismissedFromFocus: null, unnumberedInFocus: null })
+      .where(eq(tasks.id, id));
+  } else if (wasTop) {
+    await db
+      .update(tasks)
+      .set({ toComplete: "this_week", unnumberedInFocus: null })
+      .where(eq(tasks.id, id));
+  }
 
+  // Pin every task now sitting in a top slot as "today". Top cards are only
+  // ordered by sortOrder once they're flagged this way; cards that arrived via
+  // the leverage fill would otherwise ignore the order the user just set.
+  await pinTopSlots(reordered.slice(0, topCount));
+
+  // Visible tasks take the leading slots; any this-week tasks not currently on
+  // screen keep their relative order behind them.
   const { getThisWeekTasks } = await import("@/server/queries/analytics");
   const restIds = (await getThisWeekTasks())
     .map((t) => t.id)
-    .filter((tid) => !ordered.includes(tid));
+    .filter((tid) => !reordered.includes(tid));
 
-  const finalIds = [...ordered, ...restIds];
+  const finalIds = [...reordered, ...restIds];
   for (let i = 0; i < finalIds.length; i++) {
     await db.update(tasks).set({ sortOrder: i + 1 }).where(eq(tasks.id, finalIds[i]));
   }

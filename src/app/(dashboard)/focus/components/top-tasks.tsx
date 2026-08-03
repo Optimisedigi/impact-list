@@ -9,12 +9,13 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { Zap, X, Check, GripVertical, CalendarClock, FileText, Play, Pause, MoreHorizontal } from "lucide-react";
-import { updateTaskField, reorderFocusTasks, dismissFromFocus } from "@/server/actions/tasks";
+import { updateTaskField, reorderFocusTasks, dismissFromFocus, setFocusPosition } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { formatDateShort, daysLeft, todayLocalISO } from "@/lib/time-utils";
 import { LogHoursDialog } from "./log-hours-dialog";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useDroppable,
   type DraggableAttributes,
@@ -35,7 +36,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useFocusDnd } from "./focus-dnd-provider";
 
-function SortableTaskCard({ task, index, isOverdue }: { task: Task; index: number; isOverdue?: boolean }) {
+function SortableTaskCard({ task, index, isOverdue, positionCount, onMovePosition }: { task: Task; index: number; isOverdue?: boolean; positionCount?: number; onMovePosition?: (newIndex: number) => void }) {
   const {
     attributes,
     listeners,
@@ -54,16 +55,35 @@ function SortableTaskCard({ task, index, isOverdue }: { task: Task; index: numbe
 
   return (
     <div ref={setNodeRef} style={style}>
-      <TaskCard task={task} index={index} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} />
+      <TaskCard task={task} index={index} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} positionCount={positionCount} onMovePosition={onMovePosition} />
     </div>
   );
 }
 
-function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { task: Task; index: number; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes }) {
+function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes, positionCount, onMovePosition }: { task: Task; index: number; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; positionCount?: number; onMovePosition?: (newIndex: number) => void }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
   const [editingDeadline, setEditingDeadline] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const router = useRouter();
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // A dblclick also fires two clicks, so hold navigation briefly to see if a
+  // second click arrives — one click opens the task, two edits the title.
+  function handleTitleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      setEditingTitle(true);
+      return;
+    }
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      router.push(`/tasks?highlight=${task.id}`);
+    }, 220);
+  }
   const [optimisticTask, setOptimisticTask] = useOptimistic(
     task,
     (current: Task, update: Partial<Task>) => ({ ...current, ...update })
@@ -71,6 +91,16 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
   const submittedDeadlineRef = useRef(task.deadline ?? null);
   const cat = DEFAULT_CATEGORIES[task.category as CategoryKey];
   const { finishTimer, hasTimer, getAllocatedSeconds, startTimer, pauseTimer, isRunning } = useTaskTimer();
+
+  function handleTitleChange(value: string) {
+    setEditingTitle(false);
+    const next = value.trim();
+    if (!next || next === task.title) return;
+    startTransition(async () => {
+      setOptimisticTask({ title: next } as Partial<Task>);
+      await updateTaskField(task.id, "title", next);
+    });
+  }
 
   function handleDeadlineChange(value: string) {
     setEditingDeadline(false);
@@ -141,9 +171,34 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
                   <GripVertical className="h-4 w-4" />
                 </button>
               )}
-              <span className="rounded border border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums shrink-0" title="Focus priority">
-                #{index + 1}
-              </span>
+              {onMovePosition && positionCount ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="shrink-0 cursor-pointer rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring"
+                      title="Set priority position"
+                    >
+                      #{index + 1}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-16">
+                    {Array.from({ length: positionCount }, (_, i) => (
+                      <DropdownMenuItem
+                        key={i + 1}
+                        onClick={() => onMovePosition(i)}
+                        className={`justify-center tabular-nums ${i === index ? "font-semibold text-foreground" : ""}`}
+                      >
+                        {i + 1}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <span className="rounded border border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums shrink-0" title="Focus priority">
+                  #{index + 1}
+                </span>
+              )}
               <Badge
                 variant="outline"
                 className="border-0 text-xs"
@@ -182,9 +237,27 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
             </div>
           </div>
           <CardTitle className="text-base leading-tight break-words">
-            <Link href={`/tasks?highlight=${task.id}`} className="hover:underline">
-              {task.title}
-            </Link>
+            {editingTitle ? (
+              <input
+                autoFocus
+                defaultValue={optimisticTask.title}
+                onBlur={(e) => handleTitleChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setEditingTitle(false);
+                }}
+                className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-base outline-none focus:ring-1 focus:ring-ring"
+              />
+            ) : (
+              <Link
+                href={`/tasks?highlight=${task.id}`}
+                onClick={handleTitleClick}
+                className="hover:underline"
+                title="Double-click to rename"
+              >
+                {optimisticTask.title}
+              </Link>
+            )}
           </CardTitle>
           {(() => {
             const deadline = optimisticTask.deadline;
@@ -363,7 +436,7 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes }: { t
   );
 }
 
-export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Set<number> }) {
+export function TopTasks({ tasks, overdueIds, queueTaskIds = [] }: { tasks: Task[]; overdueIds?: Set<number>; queueTaskIds?: number[] }) {
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
   const { registerReorder } = useFocusDnd();
@@ -389,11 +462,28 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
       if (oldIndex === -1 || newIndex === -1) return;
       const newItems = arrayMove(prev, oldIndex, newIndex);
       setItems(newItems);
+      const ids = newItems.map((t) => t.id);
       startTransition(async () => {
-        await reorderFocusTasks(newItems.map((t) => t.id));
+        // Pin the cards as top slots so the new order survives a refetch
+        await reorderFocusTasks(ids, ids);
       });
     });
   }, [registerReorder, startTransition]);
+
+  // Numbering is global across the focus page: these cards hold slots 1..N and
+  // the This Week queue continues after them, so a card can be sent into the
+  // queue by picking a later number.
+  const visibleIds = [...items.map((t) => t.id), ...queueTaskIds];
+
+  function movePosition(taskId: number, globalIndex: number) {
+    const oldIndex = items.findIndex((t) => t.id === taskId);
+    if (oldIndex !== -1 && globalIndex < items.length) {
+      setItems(arrayMove(items, oldIndex, globalIndex));
+    }
+    startTransition(async () => {
+      await setFocusPosition(taskId, globalIndex, visibleIds, items.length);
+    });
+  }
 
   if (items.length === 0) {
     return (
@@ -411,7 +501,7 @@ export function TopTasks({ tasks, overdueIds }: { tasks: Task[]; overdueIds?: Se
       <SortableContext id="top-priority" items={items.map((t) => t.id)} strategy={horizontalListSortingStrategy}>
         <div className="grid gap-4 md:grid-cols-3">
           {items.map((task, i) => (
-            <SortableTaskCard key={task.id} task={task} index={i} isOverdue={overdueIds?.has(task.id)} />
+            <SortableTaskCard key={task.id} task={task} index={i} isOverdue={overdueIds?.has(task.id)} positionCount={visibleIds.length} onMovePosition={(newIndex) => movePosition(task.id, newIndex)} />
           ))}
         </div>
       </SortableContext>

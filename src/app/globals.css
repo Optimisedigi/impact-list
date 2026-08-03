@@ -175,13 +175,14 @@ html, body {
 }
 
 @keyframes highlight-pulse {
-  0% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 18%); }
-  50% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 18%); }
-  100% { box-shadow: 0 0 0 2px transparent; background-color: transparent; }
+  0% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 30%); }
+  70% { box-shadow: 0 0 0 2px oklch(0.75 0.15 85 / 90%); background-color: oklch(0.75 0.15 85 / 30%); }
+  /* Settle into a soft tint so the task stays easy to spot after the pulse */
+  100% { box-shadow: 0 0 0 2px transparent; background-color: oklch(0.75 0.15 85 / 14%); }
 }
 
 .animate-highlight-pulse {
-  animation: highlight-pulse 3s ease-out forwards;
+  animation: highlight-pulse 6s ease-out forwards;
 }
 
 /* Calendar "today" ring — a neon green border that breathes between two

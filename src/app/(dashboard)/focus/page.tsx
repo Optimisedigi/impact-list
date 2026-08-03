@@ -58,7 +58,7 @@ export default async function FocusPage() {
       <FocusDndProvider>
         <div>
           <h2 className="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wider">Top Priority</h2>
-          <TopTasks tasks={topTasks} overdueIds={overdueIds} />
+          <TopTasks tasks={topTasks} overdueIds={overdueIds} queueTaskIds={filteredWeekTasks.map((t) => t.id)} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
