@@ -13,6 +13,7 @@ import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPrior
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { LogHoursDialog } from "./log-hours-dialog";
+import { QuickAddTask } from "./quick-add-task";
 import Link from "next/link";
 import {
   type DraggableAttributes,
@@ -33,7 +34,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useFocusDnd } from "./focus-dnd-provider";
 
-function SortableQueueItem({ task, isOverdue }: { task: Task; isOverdue?: boolean }) {
+function SortableQueueItem({ task, isOverdue, index, count, onMovePosition }: { task: Task; isOverdue?: boolean; index: number; count: number; onMovePosition: (taskId: number, newIndex: number) => void }) {
   const {
     attributes,
     listeners,
@@ -52,12 +53,12 @@ function SortableQueueItem({ task, isOverdue }: { task: Task; isOverdue?: boolea
 
   return (
     <div ref={setNodeRef} style={style}>
-      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} />
+      <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={index + 1} positionCount={count} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} />
     </div>
   );
 }
 
-function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes }) {
+function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, positionCount, onMovePosition }: { task: Task; isOverdue?: boolean; dragListeners?: DraggableSyntheticListeners; dragAttributes?: DraggableAttributes; position?: number; positionCount?: number; onMovePosition?: (newIndex: number) => void }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
   const [hoursInput, setHoursInput] = useState("");
@@ -148,6 +149,18 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes }: { task: T
       className={`relative flex flex-wrap items-center gap-y-1 rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
     >
       <div className="flex items-start gap-2 min-w-0 flex-1">
+        {position !== undefined && onMovePosition && positionCount ? (
+          <select
+            value={position}
+            onChange={(e) => onMovePosition(Number(e.target.value) - 1)}
+            className="shrink-0 cursor-pointer appearance-none rounded border border-border/50 bg-transparent px-1 py-0.5 text-xs text-muted-foreground tabular-nums outline-none hover:text-foreground focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
+            title="Set priority position"
+          >
+            {Array.from({ length: positionCount }, (_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1}</option>
+            ))}
+          </select>
+        ) : null}
         {dragListeners && (
           <button
             className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1 mt-1"
@@ -364,6 +377,19 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
     });
   }, [registerReorder, startTransition]);
 
+  function moveToPosition(taskId: number, newIndex: number) {
+    const prev = itemsRef.current;
+    const oldIndex = prev.findIndex((t) => t.id === taskId);
+    if (oldIndex === -1) return;
+    const clamped = Math.max(0, Math.min(newIndex, prev.length - 1));
+    if (clamped === oldIndex) return;
+    const newItems = arrayMove(prev, oldIndex, clamped);
+    setItems(newItems);
+    startTransition(async () => {
+      await reorderFocusTasks(newItems.map((t) => t.id));
+    });
+  }
+
   const hasOverdue = overdueTasks && overdueTasks.length > 0;
   const isEmpty = items.length === 0 && !hasOverdue;
 
@@ -391,14 +417,17 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks }: { tasks: Task[]; 
             {items.length > 0 && (
               <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
-                  {items.map((task) => (
-                    <SortableQueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} />
+                  {items.map((task, index) => (
+                    <SortableQueueItem key={task.id} task={task} index={index} count={items.length} onMovePosition={moveToPosition} isOverdue={overdueIds?.has(task.id)} />
                   ))}
                 </div>
               </SortableContext>
             )}
           </div>
         )}
+        <div className="mt-3">
+          <QuickAddTask tasks={items} />
+        </div>
       </CardContent>
     </Card>
   );

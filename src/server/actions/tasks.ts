@@ -130,6 +130,44 @@ export async function duplicateTasks(ids: number[]) {
   return result;
 }
 
+export async function createFocusTask(input: {
+  title: string;
+  category: string;
+  position: number;
+  existingIds: number[];
+}) {
+  const title = input.title.trim();
+  if (!title) return null;
+
+  // Full this-week ordering (includes tasks hidden from the visible queue,
+  // e.g. top-priority cards) so renumbering can't collide with their sortOrder
+  const { getThisWeekTasks } = await import("@/server/queries/analytics");
+  const allIds = (await getThisWeekTasks()).map((t) => t.id);
+
+  const [created] = await db
+    .insert(tasks)
+    .values({ title, category: input.category, status: "not_started", toComplete: "this_week", sortOrder: 0 })
+    .returning();
+
+  // Insert the new task into the full ordering right before the task currently
+  // at the requested position (or at the bottom); existing tasks keep their order
+  const pos = Math.max(0, Math.min(input.position, input.existingIds.length));
+  const beforeId = input.existingIds[pos];
+  const finalIds: number[] = [];
+  for (const id of allIds) {
+    if (id === beforeId) finalIds.push(created.id);
+    finalIds.push(id);
+  }
+  if (beforeId === undefined || !allIds.includes(beforeId)) finalIds.push(created.id);
+  for (let i = 0; i < finalIds.length; i++) {
+    await db.update(tasks).set({ sortOrder: i + 1 }).where(eq(tasks.id, finalIds[i]));
+  }
+
+  revalidatePath("/focus");
+  revalidatePath("/tasks");
+  return created;
+}
+
 export async function reorderFocusTasks(orderedIds: number[]) {
   for (let i = 0; i < orderedIds.length; i++) {
     await db
