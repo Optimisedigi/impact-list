@@ -150,16 +150,28 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
     >
       <div className="flex items-start gap-2 min-w-0 flex-1">
         {position !== undefined && onMovePosition && positionCount ? (
-          <select
-            value={position}
-            onChange={(e) => onMovePosition(Number(e.target.value) - 1)}
-            className="shrink-0 cursor-pointer appearance-none rounded border border-border/50 bg-transparent px-1 py-0.5 text-xs text-muted-foreground tabular-nums outline-none hover:text-foreground focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
-            title="Set priority position"
-          >
-            {Array.from({ length: positionCount }, (_, i) => (
-              <option key={i + 1} value={i + 1}>{i + 1}</option>
-            ))}
-          </select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="shrink-0 cursor-pointer rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
+                title="Set priority position"
+              >
+                #{position}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-16">
+              {Array.from({ length: positionCount }, (_, i) => (
+                <DropdownMenuItem
+                  key={i + 1}
+                  onClick={() => onMovePosition(i)}
+                  className={`justify-center tabular-nums ${i + 1 === position ? "font-semibold text-foreground" : ""}`}
+                >
+                  {i + 1}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
         {dragListeners && (
           <button

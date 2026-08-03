@@ -387,7 +387,7 @@ export function FloatingAddTask() {
                   </div>
                   <div>
                     <Label>Est. Hours</Label>
-                    <Input type="number" step="0.5" {...register("estimatedHours")} />
+                    <Input type="number" step="0.25" {...register("estimatedHours")} />
                   </div>
                 </div>
 

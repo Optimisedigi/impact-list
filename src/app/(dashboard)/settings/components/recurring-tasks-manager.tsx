@@ -184,7 +184,7 @@ function RecurringTaskDialog({
             )}
             <div>
               <Label>Est. Hours</Label>
-              <Input type="number" step="0.5" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} />
+              <Input type="number" step="0.25" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
