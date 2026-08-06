@@ -439,12 +439,16 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes, posit
 export function TopTasks({ tasks, overdueIds, queueTaskIds = [] }: { tasks: Task[]; overdueIds?: Set<number>; queueTaskIds?: number[] }) {
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
-  const { registerReorder } = useFocusDnd();
+  const { registerReorder, registerItems } = useFocusDnd();
   const { setNodeRef, isOver } = useDroppable({ id: "top-priority-drop" });
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    registerItems("top-priority", items.map((t) => t.id));
+  }, [registerItems, items]);
 
   // Sync with server data when tasks change
   const tasksKey = tasks.map((t) => `${t.id}:${t.deadline ?? ""}:${t.updatedAt}`).join(",");

@@ -17,6 +17,7 @@ import { QuickAddTask } from "./quick-add-task";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  useDroppable,
   type DraggableAttributes,
   type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
@@ -437,11 +438,16 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
   const positionOffset = topTaskIds.length;
   const [items, setItems] = useState(tasks);
   const [, startTransition] = useTransition();
-  const { registerReorder } = useFocusDnd();
+  const { registerReorder, registerItems } = useFocusDnd();
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: "week-queue-drop" });
   const itemsRef = useRef(items);
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    registerItems("week-queue", items.map((t) => t.id));
+  }, [registerItems, items]);
 
   const tasksKey = tasks.map((t) => `${t.id}:${t.deadline ?? ""}:${t.updatedAt}`).join(",");
   const [prevTasksKey, setPrevTasksKey] = useState(tasksKey);
@@ -507,13 +513,15 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
   const isEmpty = items.length === 0 && !hasOverdue && unnumberedTasks.length === 0;
 
   return (
-    <Card className="glass">
+    <Card ref={setDropRef} className={`glass transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">This Week</CardTitle>
       </CardHeader>
       <CardContent>
         {isEmpty ? (
-          <p className="text-sm text-muted-foreground">No tasks due this week.</p>
+          <p className="text-sm text-muted-foreground">
+            {isOver ? "Drop here to move into This Week" : "No tasks due this week."}
+          </p>
         ) : (
           <div className="space-y-3">
             {items.length > 0 && (
