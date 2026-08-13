@@ -60,6 +60,10 @@ interface DayCellProps {
   // as the inline event's title backdrop in a lightened form so the small
   // event reads as "inside" the bigger one rather than punching through it.
   coveringColor?: string | null;
+  // Event behind the covering multi-day block. The block's own button lives in
+  // a layer *below* these day rows, so it can never receive a click — the cell
+  // opens it on its behalf.
+  coveringEventId?: number | null;
   onClick: (date: string) => void;
   onEventClick: (eventId: number) => void;
 }
@@ -69,6 +73,7 @@ export function DayCell({
   height,
   defaultProfileColor,
   coveringColor,
+  coveringEventId,
   onClick,
   onEventClick,
 }: DayCellProps) {
@@ -127,12 +132,12 @@ export function DayCell({
     titleBg = defaultProfileColor ?? undefined;
   }
 
-  // The button click goes to "create" by default; tapping a specific event
-  // line opens that event. Covered cells with no inline events open the
-  // covering block by routing to the cell's date so the user can at least
-  // see it. Single-block cells open that block.
+  // Click priority: a single inline event wins (it's the thing under the
+  // cursor), then the multi-day block covering this row — any of its days
+  // opens it — and otherwise the cell falls through to "create".
   function handleCellClick() {
     if (singleBlock) onEventClick(singleBlock.eventId);
+    else if (coveringEventId != null) onEventClick(coveringEventId);
     else onClick(cell.date);
   }
 

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { openNativePicker } from "@/components/ui/input";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
@@ -271,7 +272,8 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes, posit
                   type="date"
                   autoFocus
                   defaultValue={deadline ?? ""}
-                  className="text-xs rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+                  className="text-xs cursor-pointer rounded border border-border bg-background px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+                  onClick={openNativePicker}
                   onChange={(e) => {
                     handleDeadlineChange(e.target.value);
                   }}

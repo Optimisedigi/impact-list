@@ -37,6 +37,14 @@ export function MonthColumn({
     }
     return m;
   }, [month.blocks]);
+
+  // blockId -> eventId, so a covered day cell can open the multi-day event
+  // sitting underneath it (the overlay layer is not clickable).
+  const blockEventIdById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const b of month.blocks) m.set(b.blockId, b.eventId);
+    return m;
+  }, [month.blocks]);
   // Per-row [top, height] measured from the DOM. Multi-day overlays are
   // positioned/sized using these so wrapping cells push later rows down.
   const [rowMetrics, setRowMetrics] = useState<{ top: number; height: number }[]>([]);
@@ -132,6 +140,11 @@ export function MonthColumn({
               coveringColor={
                 cell.coveredByBlockId
                   ? blockColorById.get(cell.coveredByBlockId) ?? null
+                  : null
+              }
+              coveringEventId={
+                cell.coveredByBlockId
+                  ? blockEventIdById.get(cell.coveredByBlockId) ?? null
                   : null
               }
               onClick={onCellClick}

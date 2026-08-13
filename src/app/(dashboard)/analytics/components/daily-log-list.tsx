@@ -6,6 +6,7 @@ import { formatDate, todayLocalISO } from "@/lib/time-utils";
 import type { DailyTimeLog } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { openNativePicker } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -78,8 +79,9 @@ function AddDayHoursForm() {
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
+            onClick={openNativePicker}
             disabled={isPending}
-            className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+            className="w-full cursor-pointer rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-ring"
           />
         </label>
         <label className="space-y-1 text-sm">

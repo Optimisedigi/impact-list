@@ -6,6 +6,7 @@ import { z } from "zod/v4";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimeField } from "@/components/ui/time-field";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -516,20 +517,18 @@ export function FloatingAddTask() {
                     <div className="space-y-2">
                       {daySections.map((section, index) => (
                         <div key={section.id} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
-                          <Input
-                            type="time"
+                          <TimeField
                             value={section.start}
-                            onChange={(e) => updateDaySection(section.id, "start", e.target.value)}
-                            aria-label={`Work section ${index + 1} start time`}
-                            className="min-w-0 tabular-nums"
+                            onChange={(value) => updateDaySection(section.id, "start", value)}
+                            label={`Work section ${index + 1} start time`}
+                            placeholder="Start"
                           />
                           <span className="text-xs text-muted-foreground">to</span>
-                          <Input
-                            type="time"
+                          <TimeField
                             value={section.end}
-                            onChange={(e) => updateDaySection(section.id, "end", e.target.value)}
-                            aria-label={`Work section ${index + 1} end time`}
-                            className="min-w-0 tabular-nums"
+                            onChange={(value) => updateDaySection(section.id, "end", value)}
+                            label={`Work section ${index + 1} end time`}
+                            placeholder="End"
                           />
                           <Button
                             type="button"
