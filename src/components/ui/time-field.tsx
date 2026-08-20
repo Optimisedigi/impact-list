@@ -122,7 +122,10 @@ export function TimeField({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    // `modal` gives the popover its own scroll lock. Without it, when the
+    // field sits inside a Dialog the dialog's lock blocks wheel/touch scroll
+    // in the portalled options list — it looks stuck near midnight.
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <button
           type="button"
