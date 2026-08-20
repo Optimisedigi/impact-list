@@ -232,6 +232,8 @@ function EventDialogBody({
   }
   return (
     <EditEventBody
+      // Remount per event so the fetch state resets without an effect.
+      key={state.eventId}
       eventId={state.eventId}
       resolvedColors={resolvedColors}
       targets={targets}
@@ -267,7 +269,6 @@ function EditEventBody({
 
   useEffect(() => {
     let cancelled = false;
-    setState({ kind: "loading" });
     fetchCalendarEvent(eventId).then((ev) => {
       if (cancelled) return;
       setState(ev ? { kind: "ready", event: ev } : { kind: "missing" });

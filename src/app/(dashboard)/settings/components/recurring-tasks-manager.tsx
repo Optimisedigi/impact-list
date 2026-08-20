@@ -249,7 +249,7 @@ export function RecurringTasksManager({
         </div>
         <p className="text-sm text-muted-foreground">
           Tasks that repeat on a schedule. They auto-generate as new tasks when due. Once completed, they stay done until the next cycle creates a fresh one.
-          Press "Generate Now" or tasks are created automatically when you load the app.
+          Press &quot;Generate Now&quot; or tasks are created automatically when you load the app.
         </p>
         {generated !== null && (
           <p className="text-sm text-green-600 dark:text-green-400">

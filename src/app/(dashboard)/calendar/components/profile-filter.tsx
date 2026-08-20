@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ProfileWithColor } from "@/server/queries/calendar-profiles";
 import { foregroundColor } from "@/lib/calendar/contrast";
+import { useHydrated } from "@/lib/use-hydrated";
 
 const STORAGE_KEY = "calendar.filterOverrides";
 
@@ -21,30 +22,30 @@ interface Overrides {
 
 const EMPTY: Overrides = { forceShow: [], forceHide: [] };
 
+function readOverrides(): Overrides {
+  if (typeof window === "undefined") return EMPTY;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return EMPTY;
+    const parsed = JSON.parse(raw) as Partial<Overrides>;
+    return {
+      forceShow: Array.isArray(parsed.forceShow) ? parsed.forceShow : [],
+      forceHide: Array.isArray(parsed.forceHide) ? parsed.forceHide : [],
+    };
+  } catch {
+    return EMPTY;
+  }
+}
+
 // Compute the effective `hiddenIds` set from server-side defaults + user
 // overrides. Server defaults from `visibleByDefault` flow through unless the
 // user has explicitly toggled that profile.
 export function useHiddenProfiles(profiles: ProfileWithColor[]) {
-  const [overrides, setOverrides] = useState<Overrides>(EMPTY);
-  const [hydrated, setHydrated] = useState(false);
-
-  // Hydrate from localStorage once on mount.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<Overrides>;
-        setOverrides({
-          forceShow: Array.isArray(parsed.forceShow) ? parsed.forceShow : [],
-          forceHide: Array.isArray(parsed.forceHide) ? parsed.forceHide : [],
-        });
-      }
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
-  }, []);
+  const [overrides, setOverrides] = useState<Overrides>(readOverrides);
+  const hydrated = useHydrated();
+  // Stored overrides only take effect after hydration, so the first client
+  // render still matches the server-rendered defaults.
+  const active = hydrated ? overrides : EMPTY;
 
   // Persist overrides whenever they change.
   useEffect(() => {
@@ -57,15 +58,15 @@ export function useHiddenProfiles(profiles: ProfileWithColor[]) {
   }, [overrides, hydrated]);
 
   const hiddenIds = useMemo(() => {
-    const force = new Set(overrides.forceHide);
-    const show = new Set(overrides.forceShow);
+    const force = new Set(active.forceHide);
+    const show = new Set(active.forceShow);
     const result = new Set<number>();
     for (const p of profiles) {
       if (show.has(p.id)) continue; // user wants it shown
       if (force.has(p.id) || !p.visibleByDefault) result.add(p.id);
     }
     return result;
-  }, [profiles, overrides]);
+  }, [profiles, active]);
 
   function toggle(profileId: number) {
     const profile = profiles.find((p) => p.id === profileId);

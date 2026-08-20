@@ -40,6 +40,7 @@ vi.mock('drizzle-orm', () => ({
   isNull: vi.fn((col) => ({ _type: 'isNull', col })),
   isNotNull: vi.fn((col) => ({ _type: 'isNotNull', col })),
   or: vi.fn((...args) => ({ _type: 'or', args })),
+  inArray: vi.fn((col, vals) => ({ _type: 'inArray', col, vals })),
 }))
 
 vi.mock('next/cache', () => ({
@@ -59,6 +60,10 @@ import { recurringTasks, tasks } from '@/db/schema'
 describe('recurring-tasks actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // clearAllMocks keeps queued mockReturnValueOnce values, which would leak
+    // between tests now that one call site queues several responses.
+    mockSelectFrom.mockReset()
+    mockSelectFrom.mockImplementation(() => ({ where: mockSelectWhere, orderBy: vi.fn(() => []) }))
     mockReturning.mockResolvedValue([{ id: 1, title: 'Test' }])
   })
 
@@ -201,9 +206,14 @@ describe('recurring-tasks actions', () => {
   // ── generateRecurringTasks ───────────────────────────────
 
   describe('generateRecurringTasks', () => {
-    function mockActiveRecurringTasks(rtList: Record<string, unknown>[]) {
-      const mockWhere = vi.fn(() => rtList)
-      mockSelectFrom.mockReturnValueOnce({ where: mockWhere, orderBy: vi.fn(() => []) })
+    // generateRecurringTasks runs two selects: active recurring tasks, then the
+    // open (not-done) tasks already linked to them.
+    function mockActiveRecurringTasks(
+      rtList: Record<string, unknown>[],
+      openTaskRows: Record<string, unknown>[] = []
+    ) {
+      mockSelectFrom.mockReturnValueOnce({ where: vi.fn(() => rtList), orderBy: vi.fn(() => []) })
+      mockSelectFrom.mockReturnValueOnce({ where: vi.fn(() => openTaskRows), orderBy: vi.fn(() => []) })
     }
 
     it('returns { created: 0 } when there are no active recurring tasks', async () => {
@@ -407,7 +417,10 @@ describe('recurring-tasks actions', () => {
     })
 
     it('revalidates /tasks and /focus by default', async () => {
-      mockActiveRecurringTasks([])
+      // Needs an active task: with none, the action returns before revalidating.
+      mockActiveRecurringTasks([
+        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },
+      ])
 
       await generateRecurringTasks()
 
@@ -416,7 +429,9 @@ describe('recurring-tasks actions', () => {
     })
 
     it('skips revalidation when skipRevalidate is true', async () => {
-      mockActiveRecurringTasks([])
+      mockActiveRecurringTasks([
+        { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },
+      ])
 
       await generateRecurringTasks({ skipRevalidate: true })
 

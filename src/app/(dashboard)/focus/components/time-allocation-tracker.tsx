@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DEFAULT_CATEGORIES } from "@/lib/constants";
-import type { CategoryKey } from "@/lib/constants";
 import type { CategoryTarget } from "@/types";
 
 type AllocationData = { category: string; totalHours: number }[];
@@ -31,19 +30,19 @@ export function TimeAllocationTracker({
   fetchAllocation: (period: PeriodKey) => Promise<AllocationData>;
 }) {
   const [period, setPeriod] = useState<PeriodKey>("this_month");
-  const [data, setData] = useState(initialData);
+  // "this_month" is server-rendered; other periods are fetched on demand.
+  const [fetched, setFetched] = useState<AllocationData | null>(null);
   const [isPending, startTransition] = useTransition();
+  const data = period === "this_month" ? initialData : fetched ?? [];
 
-  useEffect(() => {
-    if (period === "this_month") {
-      setData(initialData);
-      return;
-    }
+  function changePeriod(next: PeriodKey) {
+    setPeriod(next);
+    setFetched(null);
+    if (next === "this_month") return;
     startTransition(async () => {
-      const result = await fetchAllocation(period);
-      setData(result);
+      setFetched(await fetchAllocation(next));
     });
-  }, [period, initialData, fetchAllocation]);
+  }
 
   const totalHours = data.reduce((sum, d) => sum + d.totalHours, 0);
   const targetMap = Object.fromEntries(targets.map((t) => [t.category, t.targetPercentage]));
@@ -53,7 +52,7 @@ export function TimeAllocationTracker({
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">Time Allocation</CardTitle>
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodKey)}>
+          <Tabs value={period} onValueChange={(v) => changePeriod(v as PeriodKey)}>
             <TabsList className="h-7 flex-wrap">
               <TabsTrigger value="this_week" className="text-xs px-2 py-1">This Week</TabsTrigger>
               <TabsTrigger value="last_week" className="text-xs px-2 py-1">Last Week</TabsTrigger>
@@ -65,7 +64,9 @@ export function TimeAllocationTracker({
         </div>
       </CardHeader>
       <CardContent className={`space-y-3 ${isPending ? "opacity-60" : ""}`}>
-        {totalHours === 0 ? (
+        {isPending && totalHours === 0 ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : totalHours === 0 ? (
           <p className="text-sm text-muted-foreground">No time logged for this period.</p>
         ) : (
           Object.entries(DEFAULT_CATEGORIES).map(([key, cat]) => {

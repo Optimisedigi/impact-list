@@ -50,7 +50,7 @@ import {
   getWeeklyAllocationTrend,
   getCompletionsByDay,
   getPhaseBurndown,
-  getCompletionsByCategoryOverTime,
+  getCategoryPercentageOverTime,
   getLeverageTrend,
 } from '../analytics-extended'
 import { tasks, timeEntries } from '@/db/schema'
@@ -85,7 +85,7 @@ describe('analytics-extended queries', () => {
       expect(result).toHaveLength(4)
     })
 
-    it('returns week data with shortDate format (day/month)', async () => {
+    it('returns week data with a W-prefixed week label', async () => {
       mockGroupBy.mockResolvedValue([])
 
       const result = await getWeeklyAllocationTrend(1)
@@ -93,8 +93,7 @@ describe('analytics-extended queries', () => {
       expect(result).toHaveLength(1)
       expect(result[0]).toHaveProperty('week')
       expect(result[0]).toHaveProperty('weekCommencing')
-      // week format should be "day/month"
-      expect(result[0].week).toMatch(/^\d{1,2}\/\d{1,2}$/)
+      expect(result[0].week).toMatch(/^W\d+$/)
       // weekCommencing should be ISO date
       expect(result[0].weekCommencing).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     })
@@ -251,51 +250,49 @@ describe('analytics-extended queries', () => {
     })
   })
 
-  describe('getCompletionsByCategoryOverTime', () => {
+  describe('getCategoryPercentageOverTime', () => {
     it('defaults to 12 weeks', async () => {
       mockGroupBy.mockResolvedValue([])
 
-      const result = await getCompletionsByCategoryOverTime()
+      const result = await getCategoryPercentageOverTime()
 
       expect(result).toHaveLength(12)
     })
 
-    it('labels weeks as W1, W2, etc.', async () => {
+    it('labels weeks as W-prefixed numbers in chronological order', async () => {
       mockGroupBy.mockResolvedValue([])
 
-      const result = await getCompletionsByCategoryOverTime(3)
+      const result = await getCategoryPercentageOverTime(3)
 
-      expect(result[0].week).toBe('W1')
-      expect(result[1].week).toBe('W2')
-      expect(result[2].week).toBe('W3')
+      expect(result.map((r) => r.week)).toEqual(['W10', 'W11', 'W12'])
     })
 
     it('includes weekCommencing as ISO date', async () => {
       mockGroupBy.mockResolvedValue([])
 
-      const result = await getCompletionsByCategoryOverTime(1)
+      const result = await getCategoryPercentageOverTime(1)
 
       expect(result[0].weekCommencing).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     })
 
-    it('maps category counts into week objects', async () => {
+    it('maps category hours into week objects as percentages of the week total', async () => {
       mockGroupBy.mockResolvedValue([
-        { category: 'admin', count: 2 },
-        { category: 'dev', count: 5 },
+        { category: 'admin', totalHours: 2 },
+        { category: 'dev', totalHours: 6 },
       ])
 
-      const result = await getCompletionsByCategoryOverTime(1)
+      const result = await getCategoryPercentageOverTime(1)
 
-      expect(result[0]).toHaveProperty('admin', 2)
-      expect(result[0]).toHaveProperty('dev', 5)
+      expect(result[0]).toHaveProperty('admin', 25)
+      expect(result[0]).toHaveProperty('dev', 75)
     })
 
-    it('filters for done tasks only', async () => {
+    it('omits category keys for weeks with no logged hours', async () => {
       mockGroupBy.mockResolvedValue([])
 
-      await getCompletionsByCategoryOverTime(1)
+      const result = await getCategoryPercentageOverTime(1)
 
-      expect(eq).toHaveBeenCalledWith(tasks.status, 'done')
+      expect(Object.keys(result[0])).toEqual(['week', 'weekCommencing'])
     })
   })
 
@@ -318,12 +315,12 @@ describe('analytics-extended queries', () => {
       expect(result[0]).toHaveProperty('avgLeverage', 7.5)
     })
 
-    it('uses shortDate format for week field', async () => {
+    it('uses a W-prefixed week label', async () => {
       mockWhere.mockResolvedValue([{ avgLeverage: 5 }])
 
       const result = await getLeverageTrend(1)
 
-      expect(result[0].week).toMatch(/^\d{1,2}\/\d{1,2}$/)
+      expect(result[0].week).toMatch(/^W\d+$/)
     })
 
     it('defaults avgLeverage to 0 when no data returned', async () => {

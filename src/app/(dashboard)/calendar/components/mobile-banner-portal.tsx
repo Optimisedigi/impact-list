@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useHydrated } from "@/lib/use-hydrated";
 
 interface Props {
   children: React.ReactNode;
@@ -11,12 +11,9 @@ interface Props {
 // page render content next to the "Impact List" title without restructuring
 // the shell. Falls back to nothing if the slot isn't mounted yet (SSR).
 export function MobileBannerPortal({ children }: Props) {
-  const [container, setContainer] = useState<Element | null>(null);
+  const hydrated = useHydrated();
 
-  useEffect(() => {
-    setContainer(document.getElementById("mobile-banner-slot"));
-  }, []);
-
+  const container = hydrated ? document.getElementById("mobile-banner-slot") : null;
   if (!container) return null;
   return createPortal(children, container);
 }

@@ -1,24 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// localStorage is the source of truth for the theme; the toggle notifies
+// subscribers to re-read it. Keeps the value out of component state so nothing
+// has to setState from an effect.
+const listeners = new Set<() => void>();
+const subscribe = (onChange: () => void) => {
+  listeners.add(onChange);
+  return () => {
+    listeners.delete(onChange);
+  };
+};
+
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const dark = useSyncExternalStore(
+    subscribe,
+    () => localStorage.getItem("theme") === "dark",
+    () => false
+  );
 
   useEffect(() => {
-    const stored = localStorage.getItem("theme");
-    const prefersDark = stored ? stored === "dark" : false;
-    setDark(prefersDark);
-    document.documentElement.classList.toggle("dark", prefersDark);
-  }, []);
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   function toggle() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
+    localStorage.setItem("theme", dark ? "light" : "dark");
+    listeners.forEach((l) => l());
   }
 
   return (

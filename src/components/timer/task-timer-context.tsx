@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 
 export interface TimerEntry {
   taskId: number;
@@ -59,24 +60,25 @@ function calcAllocatedSeconds(timer: TimerEntry, now: number): number {
 }
 
 export function TaskTimerProvider({ children }: { children: React.ReactNode }) {
-  const [timers, setTimers] = useState<TimerEntry[]>([]);
+  // Restored from localStorage on first client render; exposed to consumers
+  // only once hydrated so server and client markup still match.
+  const [stored, setTimers] = useState<TimerEntry[]>(loadTimers);
+  const hydrated = useHydrated();
+  // Every consumer reads the gated list, so the hydration render matches the
+  // empty server markup and all derived helpers stay consistent with it.
+  const timers = useMemo(() => (hydrated ? stored : []), [hydrated, stored]);
   const [tick, setTick] = useState(0);
   const timersRef = useRef(timers);
   useEffect(() => {
     timersRef.current = timers;
   }, [timers]);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    setTimers(loadTimers());
-  }, []);
-
   // Save to localStorage whenever timers change
   useEffect(() => {
-    if (timers.length > 0 || localStorage.getItem(STORAGE_KEY)) {
-      saveTimers(timers);
+    if (stored.length > 0 || localStorage.getItem(STORAGE_KEY)) {
+      saveTimers(stored);
     }
-  }, [timers]);
+  }, [stored]);
 
   // Tick every second for live display (only when active timers exist)
   useEffect(() => {

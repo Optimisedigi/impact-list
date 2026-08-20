@@ -9,7 +9,12 @@ const mockInsert = vi.fn(() => ({ values: mockValues }))
 const mockUpdate = vi.fn(() => ({ set: mockSet }))
 const mockDeleteWhere = vi.fn()
 const mockDelete = vi.fn(() => ({ where: mockDeleteWhere }))
-const mockSelectFrom = vi.fn(() => ({ where: vi.fn().mockResolvedValue([]) }))
+// `.from(tasks)` is both awaitable (max-sortOrder lookup) and chainable via
+// `.where(...)` (duplicateTasks reading originals), so the stub is a promise
+// carrying a `where` method.
+const selectFromResult = (rows: unknown[] = [{ maxOrder: 0 }], where = vi.fn().mockResolvedValue([])) =>
+  Object.assign(Promise.resolve(rows), { where })
+const mockSelectFrom = vi.fn(() => selectFromResult())
 const mockSelect = vi.fn(() => ({ from: mockSelectFrom }))
 
 vi.mock('@/db', () => ({
@@ -22,12 +27,13 @@ vi.mock('@/db', () => ({
 }))
 
 vi.mock('@/db/schema', () => ({
-  tasks: { id: 'tasks.id' },
+  tasks: { id: 'tasks.id', sortOrder: 'tasks.sortOrder' },
 }))
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((col, val) => ({ col, val })),
   inArray: vi.fn((col, vals) => ({ col, vals })),
+  max: vi.fn((col) => ({ max: col })),
 }))
 
 vi.mock('next/cache', () => ({
@@ -50,6 +56,7 @@ import { tasks } from '@/db/schema'
 describe('tasks actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockSelectFrom.mockImplementation(() => selectFromResult())
     mockReturning.mockResolvedValue([{ id: 1, title: 'Test Task' }])
   })
 
@@ -64,7 +71,8 @@ describe('tasks actions', () => {
       await createTask(data)
 
       expect(mockInsert).toHaveBeenCalledWith(tasks)
-      expect(mockValues).toHaveBeenCalledWith(data)
+      // sortOrder is appended so new tasks land at the bottom of the list
+      expect(mockValues).toHaveBeenCalledWith({ ...data, sortOrder: 1 })
       expect(mockReturning).toHaveBeenCalled()
     })
 
@@ -149,11 +157,14 @@ describe('tasks actions', () => {
       expect(setArg.deadline).toBeNull()
     })
 
-    it('revalidates /tasks only (not /focus)', async () => {
+    it('revalidates the task, list, analytics and focus paths', async () => {
       await updateTaskField(1, 'title', 'New')
 
       expect(revalidatePath).toHaveBeenCalledWith('/tasks')
-      expect(revalidatePath).toHaveBeenCalledTimes(1)
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks/1')
+      expect(revalidatePath).toHaveBeenCalledWith('/analytics')
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+      expect(revalidatePath).toHaveBeenCalledTimes(4)
     })
   })
 
@@ -224,7 +235,7 @@ describe('tasks actions', () => {
         },
       ]
       const mockFromWhere = vi.fn().mockResolvedValue(originals)
-      mockSelectFrom.mockReturnValueOnce({ where: mockFromWhere })
+      mockSelectFrom.mockReturnValueOnce(selectFromResult([{ maxOrder: 0 }], mockFromWhere))
       mockReturning.mockResolvedValueOnce([{ id: 10, title: 'Task A' }])
 
       const result = await duplicateTasks([1])
@@ -247,7 +258,7 @@ describe('tasks actions', () => {
       const mockFromWhere = vi.fn().mockResolvedValue([
         { id: 1, title: 'T', category: 'admin', status: 'not_started', toComplete: null, client: null, deadline: null, estimatedHours: null, description: null },
       ])
-      mockSelectFrom.mockReturnValueOnce({ where: mockFromWhere })
+      mockSelectFrom.mockReturnValueOnce(selectFromResult([{ maxOrder: 0 }], mockFromWhere))
       mockReturning.mockResolvedValueOnce([{ id: 2, title: 'T' }])
 
       await duplicateTasks([1])

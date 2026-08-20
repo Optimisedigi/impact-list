@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { setSubscriptionProfile } from "@/server/actions/calendar-profiles";
 import type { AccountWithSubscriptions } from "@/server/queries/calendar-accounts";
 import type { ProfileWithColor } from "@/server/queries/calendar-profiles";
 import { useRouter } from "next/navigation";
+import { useHydrated } from "@/lib/use-hydrated";
 
 interface Props {
   accounts: AccountWithSubscriptions[];
@@ -23,13 +24,10 @@ interface Props {
 // Locale formatting differs between server and client, so render the
 // timestamp only after mount to avoid hydration mismatches.
 function LastSyncedAt({ iso }: { iso: string }) {
-  const [text, setText] = useState<string | null>(null);
-  useEffect(() => {
-    setText(new Date(iso).toLocaleString());
-  }, [iso]);
+  const hydrated = useHydrated();
   return (
     <p className="text-xs text-muted-foreground">
-      Last synced {text ?? "…"}
+      Last synced {hydrated ? new Date(iso).toLocaleString() : "…"}
     </p>
   );
 }

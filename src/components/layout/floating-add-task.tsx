@@ -118,9 +118,13 @@ import { usePathname } from "next/navigation";
 
 export function FloatingAddTask() {
   const pathname = usePathname();
-  // Hide on task detail pages (mobile form overlap)
+  // Hide on task detail pages (mobile form overlap). Done in a wrapper so the
+  // inner component's hooks always run in the same order.
   if (pathname.startsWith("/tasks/")) return null;
-  
+  return <FloatingAddTaskForm />;
+}
+
+function FloatingAddTaskForm() {
   const [open, setOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
   const [catOptions, setCatOptions] = useState<CategoryOption[]>([]);
