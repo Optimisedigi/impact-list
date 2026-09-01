@@ -96,7 +96,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
   // In fit mode the grid fills the viewport: squares shrink to whatever both
   // 52 columns and the row count allow, so no scrolling is ever needed.
   // +1 in the height divisor reserves space for the week-number header row.
-  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 140px) / ${Math.max(1, rows.length + 1)})`;
+  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 150px) / ${Math.max(1, rows.length + 1)})`;
   const cell = compact ? fitCell : "13px";
 
   return (
@@ -195,8 +195,8 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
             }
           >
             {compact && stats && (
-              <div className="mb-2.5 flex items-start justify-between">
-                <div className="flex flex-col items-center gap-0.5">
+              <div className="relative mb-2.5">
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
                   <h2 className="text-base font-semibold tracking-tight">My life in weeks</h2>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     <span>
@@ -208,15 +208,17 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                     </span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-6 w-6 rounded-full"
-                  onClick={() => setCompact((c) => !c)}
-                  title={compact ? "Comfortable squares" : "Fit whole life"}
-                >
-                  {compact ? <Shrink className="h-3 w-3" /> : <Expand className="h-3 w-3" />}
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-6 w-6 rounded-full"
+                    onClick={() => setCompact((c) => !c)}
+                    title={compact ? "Comfortable squares" : "Fit whole life"}
+                  >
+                    {compact ? <Shrink className="h-3 w-3" /> : <Expand className="h-3 w-3" />}
+                  </Button>
+                </div>
               </div>
             )}
             {!compact && (
