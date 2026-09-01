@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Maximize2, Minimize2 } from "lucide-react";
+import { Check, Expand, Shrink } from "lucide-react";
 import { saveLifeWeeksSettings, type LifeWeeksSettingsData } from "@/server/actions/life-weeks";
 import { buildLifeWeeksGrid } from "@/lib/life-weeks";
 import { cn } from "@/lib/utils";
@@ -95,7 +95,8 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
 
   // In fit mode the grid fills the viewport: squares shrink to whatever both
   // 52 columns and the row count allow, so no scrolling is ever needed.
-  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 160px) / ${Math.max(1, rows.length)})`;
+  // +1 in the height divisor reserves space for the week-number header row.
+  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 140px) / ${Math.max(1, rows.length + 1)})`;
   const cell = compact ? fitCell : "13px";
 
   return (
@@ -189,38 +190,51 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
           <div
             className={
               compact
-                ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background p-2"
+                ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-background p-2.5"
                 : "overflow-x-auto rounded-2xl border bg-card p-3"
             }
           >
             {compact && stats && (
-              <div className="flex flex-col items-center gap-1 pb-2">
-                <h2 className="text-lg font-semibold tracking-tight">My life in weeks</h2>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>
-                    <span className="font-mono font-medium text-foreground">{stats.remaining.toLocaleString()}</span> weeks remaining
-                  </span>
-                  <span className="text-border">|</span>
-                  <span>
-                    <span className="font-mono font-medium text-foreground">{stats.pct}%</span> of life lived
-                  </span>
+              <div className="mb-2.5 flex items-start justify-between">
+                <div className="flex flex-col items-center gap-0.5">
+                  <h2 className="text-base font-semibold tracking-tight">My life in weeks</h2>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>
+                      <span className="font-mono font-medium text-foreground">{stats.remaining.toLocaleString()}</span> weeks remaining
+                    </span>
+                    <span className="text-border">|</span>
+                    <span>
+                      <span className="font-mono font-medium text-foreground">{stats.pct}%</span> of life lived
+                    </span>
+                  </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-6 w-6 rounded-full"
+                  onClick={() => setCompact((c) => !c)}
+                  title={compact ? "Comfortable squares" : "Fit whole life"}
+                >
+                  {compact ? <Shrink className="h-3 w-3" /> : <Expand className="h-3 w-3" />}
+                </Button>
               </div>
             )}
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-7 w-7 rounded-full"
-                onClick={() => setCompact((c) => !c)}
-                title={compact ? "Comfortable squares" : "Fit whole life"}
-              >
-                {compact ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
+            {!compact && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7 rounded-full"
+                  onClick={() => setCompact((c) => !c)}
+                  title="Fit whole life"
+                >
+                  <Expand className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
 
             <div className={cn("flex gap-2.5", compact ? "w-full justify-center" : "w-max")}>
-              <div className="flex items-center justify-center pt-5">
+              <div className={cn("flex items-center justify-center", compact ? "pt-0" : "pt-5")}>
                 <span className="text-[11px] uppercase tracking-[0.09em] text-muted-foreground [writing-mode:vertical-rl] rotate-180">
                   Age
                 </span>
