@@ -9,6 +9,8 @@ import { WeekBanner } from "@/components/layout/week-banner";
 import { HideOnRoutes } from "@/components/layout/route-conditional";
 
 const CALENDAR_ROUTES = ["/calendar"];
+// The week banner is chrome the life-weeks view deliberately does without.
+const BANNER_HIDE_ROUTES = ["/calendar", "/life-weeks"];
 
 export default function DashboardLayout({
   children,
@@ -20,12 +22,12 @@ export default function DashboardLayout({
       <SidebarProvider>
         <DashboardShell
           mobileBanner={
-            <HideOnRoutes hideOn={CALENDAR_ROUTES}>
+            <HideOnRoutes hideOn={BANNER_HIDE_ROUTES}>
               <WeekBanner />
             </HideOnRoutes>
           }
           desktopBanner={
-            <HideOnRoutes hideOn={CALENDAR_ROUTES}>
+            <HideOnRoutes hideOn={BANNER_HIDE_ROUTES}>
               <WeekBanner />
             </HideOnRoutes>
           }
