@@ -95,7 +95,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
 
   // In fit mode the grid fills the viewport: squares shrink to whatever both
   // 52 columns and the row count allow, so no scrolling is ever needed.
-  const fitCell = `min((100vw - 40px) / ${WEEKS_PER_YEAR}, (100vh - 80px) / ${Math.max(1, rows.length)})`;
+  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 120px) / ${Math.max(1, rows.length)})`;
   const cell = compact ? fitCell : "13px";
 
   return (
@@ -193,6 +193,20 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                 : "overflow-x-auto rounded-2xl border bg-card p-3"
             }
           >
+            {compact && stats && (
+              <div className="flex flex-col items-center gap-1 pb-2">
+                <h2 className="text-xl font-semibold tracking-tight">My life in weeks</h2>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>
+                    <span className="font-mono font-medium text-foreground">{stats.remaining.toLocaleString()}</span> weeks remaining
+                  </span>
+                  <span className="text-border">|</span>
+                  <span>
+                    <span className="font-mono font-medium text-foreground">{stats.pct}%</span> of life lived
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="flex justify-end pb-2">
               <Button
                 variant="outline"
@@ -205,7 +219,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
             </div>
 
             <div className={cn("flex gap-2.5", compact ? "w-full justify-center" : "w-max")}>
-              <div className={cn("items-center justify-center pt-6", compact ? "hidden" : "flex")}>
+              <div className="flex items-center justify-center pt-6">
                 <span className="text-[11px] uppercase tracking-[0.09em] text-muted-foreground [writing-mode:vertical-rl] rotate-180">
                   Age
                 </span>
@@ -220,7 +234,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                 >
                   Weeks of the year
                 </div>
-                <div className={cn("items-center gap-px pb-1", compact ? "hidden" : "flex")}>
+                <div className={cn("flex items-center gap-px pb-1")}>
                   <div className="w-[30px] flex-none" />
                   {Array.from({ length: WEEKS_PER_YEAR }, (_, i) => i + 1).map((w) => (
                     <div
@@ -243,7 +257,6 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                       className={cn(
                         "w-[30px] flex-none pr-2 text-right font-mono text-[9px]",
                         year % 10 === 0 ? "text-foreground" : "text-muted-foreground",
-                        compact && "hidden",
                       )}
                       style={{ lineHeight: cell }}
                     >
