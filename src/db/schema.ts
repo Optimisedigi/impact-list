@@ -282,6 +282,15 @@ export const categoryTargets = sqliteTable("category_targets", {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const lifeWeeksSettings = sqliteTable("life_weeks_settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  dateOfBirth: text("date_of_birth").notNull(),
+  lifeExpectancyYears: integer("life_expectancy_years").notNull().default(90),
+  updatedAt: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const multitaskColumns = sqliteTable("multitask_columns", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   taskId: integer("task_id").notNull().unique(),

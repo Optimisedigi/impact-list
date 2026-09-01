@@ -11,6 +11,7 @@ import {
   Calendar,
   GanttChart,
   Settings,
+  Hourglass,
   Zap,
   PanelLeftClose,
   PanelLeftOpen,
@@ -29,6 +30,7 @@ const icons = {
   calendar: Calendar,
   "gantt-chart": GanttChart,
   settings: Settings,
+  hourglass: Hourglass,
 } as const;
 
 const NAV_ITEMS = [
@@ -39,6 +41,7 @@ const NAV_ITEMS = [
   { href: "/matrix", label: "Matrix", icon: "scatter-chart" as const },
   { href: "/treemap", label: "Treemap", icon: "layout-grid" as const },
   { href: "/timeline", label: "Timeline", icon: "gantt-chart" as const },
+  { href: "/life-weeks", label: "Life in Weeks", icon: "hourglass" as const },
   { href: "/settings", label: "Settings", icon: "settings" as const },
 ];
 
