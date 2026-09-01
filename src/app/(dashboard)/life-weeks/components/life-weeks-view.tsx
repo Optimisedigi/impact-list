@@ -195,7 +195,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
           >
             {compact && stats && (
               <div className="flex flex-col items-center gap-1 pb-2">
-                <h2 className="text-xl font-semibold tracking-tight">My life in weeks</h2>
+                <h2 className="text-lg font-semibold tracking-tight">My life in weeks</h2>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span>
                     <span className="font-mono font-medium text-foreground">{stats.remaining.toLocaleString()}</span> weeks remaining
@@ -207,7 +207,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                 </div>
               </div>
             )}
-            <div className="flex justify-end pb-2">
+            <div className="flex justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -219,7 +219,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
             </div>
 
             <div className={cn("flex gap-2.5", compact ? "w-full justify-center" : "w-max")}>
-              <div className="flex items-center justify-center pt-6">
+              <div className="flex items-center justify-center pt-5">
                 <span className="text-[11px] uppercase tracking-[0.09em] text-muted-foreground [writing-mode:vertical-rl] rotate-180">
                   Age
                 </span>
@@ -234,7 +234,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                 >
                   Weeks of the year
                 </div>
-                <div className={cn("flex items-center gap-px pb-1")}>
+                <div className={cn("flex items-center pb-1", !compact && "gap-px")}>
                   <div className="w-[30px] flex-none" />
                   {Array.from({ length: WEEKS_PER_YEAR }, (_, i) => i + 1).map((w) => (
                     <div
