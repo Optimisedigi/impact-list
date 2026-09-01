@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Clock, Plus, Trash2 } from "lucide-react";
 import { quickLogHours } from "@/server/actions/time-entries";
+import { TimeField } from "@/components/ui/time-field";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
 import { todayLocalISO } from "@/lib/time-utils";
 import type { Task } from "@/types";
@@ -228,20 +229,16 @@ export function LogHoursDialog({
               <div className="space-y-2">
                 {sections.map((section, index) => (
                   <div key={section.id} className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-2">
-                    <input
-                      type="time"
+                    <TimeField
                       value={section.start}
-                      onChange={(e) => updateSection(section.id, "start", e.target.value)}
-                      aria-label={`Work section ${index + 1} start time`}
-                      className="min-w-0 rounded border border-border bg-background px-2 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                      onChange={(v) => updateSection(section.id, "start", v)}
+                      label={`Work section ${index + 1} start time`}
                     />
                     <span className="text-xs text-muted-foreground">to</span>
-                    <input
-                      type="time"
+                    <TimeField
                       value={section.end}
-                      onChange={(e) => updateSection(section.id, "end", e.target.value)}
-                      aria-label={`Work section ${index + 1} end time`}
-                      className="min-w-0 rounded border border-border bg-background px-2 py-2 text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                      onChange={(v) => updateSection(section.id, "end", v)}
+                      label={`Work section ${index + 1} end time`}
                     />
                     <Button
                       type="button"

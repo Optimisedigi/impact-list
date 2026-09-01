@@ -100,8 +100,20 @@ export function TimeField({
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const selectedRef = React.useRef<HTMLButtonElement | null>(null);
+  const matchRef = React.useRef<HTMLButtonElement | null>(null);
 
   const options = React.useMemo(() => buildOptions(value), [value]);
+
+  // While typing, scroll to the nearest option at/after the parsed draft —
+  // lets the user keep scrolling manually from wherever the search landed.
+  const draftMinutes = React.useMemo(() => {
+    const parsed = parseLooseTime(draft);
+    return parsed ? timeValueToMinutes(parsed) : null;
+  }, [draft]);
+  const matchOption = React.useMemo(() => {
+    if (draftMinutes === null) return null;
+    return options.find((o) => (timeValueToMinutes(o) ?? -1) >= draftMinutes) ?? options[options.length - 1] ?? null;
+  }, [draftMinutes, options]);
 
   // Jump the list to the current value each time the popover opens.
   React.useEffect(() => {
@@ -110,6 +122,12 @@ export function TimeField({
     const el = selectedRef.current;
     if (el) el.scrollIntoView({ block: "nearest" });
   }, [open, value]);
+
+  // Live-scroll to the option matching what's being typed.
+  React.useEffect(() => {
+    if (!open || !draft) return;
+    matchRef.current?.scrollIntoView({ block: "nearest" });
+  }, [open, draft, matchOption]);
 
   function commit(next: string) {
     onChange(next);
@@ -177,13 +195,14 @@ export function TimeField({
         <div className="mt-2 max-h-56 overflow-y-auto" role="listbox" aria-label={label}>
           {options.map((option) => {
             const isSelected = option === value;
+            const isMatch = option === matchOption;
             return (
               <button
                 key={option}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                ref={isSelected ? selectedRef : undefined}
+                ref={isSelected ? selectedRef : isMatch ? matchRef : undefined}
                 // Keep focus in the text box: without this the mousedown
                 // blurs it, commits whatever was typed, and closes the
                 // popover before this button's click ever fires.
@@ -192,6 +211,7 @@ export function TimeField({
                 className={cn(
                   "w-full rounded-sm px-2 py-1 text-left text-sm tabular-nums hover:bg-accent",
                   isSelected && "bg-primary text-primary-foreground hover:bg-primary",
+                  !isSelected && isMatch && draft && "bg-accent",
                 )}
               >
                 {formatTimeLabel(option)}
