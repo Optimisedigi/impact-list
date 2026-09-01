@@ -95,14 +95,16 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
 
       {grid && (
         <Card>
-          <CardContent className="overflow-x-auto py-4">
+          <CardContent className="py-4">
             <p className="mb-3 text-xs text-muted-foreground">
               {grid.currentWeekIndex.toLocaleString()} weeks lived of {grid.totalWeeks.toLocaleString()} —{" "}
               {Math.max(0, grid.totalWeeks - grid.currentWeekIndex).toLocaleString()} weeks remaining.
             </p>
+            {/* Caps at the natural ~10px-per-square size on desktop; below that
+                the squares shrink to fit the viewport instead of overflowing. */}
             <div
-              className="grid w-max gap-[3px]"
-              style={{ gridTemplateColumns: `repeat(${grid.weeksPerYear}, 10px)` }}
+              className="grid w-full max-w-[680px] gap-[1px] sm:gap-[2px] md:gap-[3px]"
+              style={{ gridTemplateColumns: `repeat(${grid.weeksPerYear}, minmax(0, 1fr))` }}
               role="img"
               aria-label={`Life in weeks grid, ${grid.currentWeekIndex} of ${grid.totalWeeks} weeks lived`}
             >
@@ -111,7 +113,7 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
                   key={week.index}
                   title={`Week ${week.index + 1} — ${week.weekStart}`}
                   className={cn(
-                    "h-[10px] w-[10px] rounded-[1px] border",
+                    "aspect-square w-full rounded-[1px] border",
                     week.status === "past" && "border-primary bg-primary",
                     week.status === "current" && "border-primary bg-primary/40 ring-1 ring-primary",
                     week.status === "future" && "border-border bg-transparent",
