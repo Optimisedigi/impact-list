@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check } from "lucide-react";
+import { Check, Maximize2, Minimize2 } from "lucide-react";
 import { saveLifeWeeksSettings, type LifeWeeksSettingsData } from "@/server/actions/life-weeks";
 import { buildLifeWeeksGrid } from "@/lib/life-weeks";
 import { cn } from "@/lib/utils";
@@ -95,11 +95,11 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
 
   // In fit mode the grid fills the viewport: squares shrink to whatever both
   // 52 columns and the row count allow, so no scrolling is ever needed.
-  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 120px) / ${Math.max(1, rows.length)})`;
+  const fitCell = `min((100vw - 80px) / ${WEEKS_PER_YEAR}, (100vh - 160px) / ${Math.max(1, rows.length)})`;
   const cell = compact ? fitCell : "13px";
 
   return (
-    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-3 p-4 md:p-5">
+    <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-2.5 p-4 md:p-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex min-w-[260px] flex-1 flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">My life in weeks</h1>
@@ -210,11 +210,12 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
             <div className="flex justify-end">
               <Button
                 variant="outline"
-                size="sm"
-                className="rounded-full"
+                size="icon"
+                className="h-7 w-7 rounded-full"
                 onClick={() => setCompact((c) => !c)}
+                title={compact ? "Comfortable squares" : "Fit whole life"}
               >
-                {compact ? "Comfortable squares" : "Fit whole life"}
+                {compact ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </Button>
             </div>
 
