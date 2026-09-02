@@ -133,7 +133,28 @@ function AddDayHoursForm() {
 function LogRow({ log }: { log: DailyTimeLog }) {
   const [isPending, startTransition] = useTransition();
   const [hours, setHours] = useState(String(log.hours));
-  const [error, setError] = useState<string | null>(null);
+  const [date, setDate] = useState(log.date);
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [hoursError, setHoursError] = useState<string | null>(null);
+
+  function saveDate(newDate: string): void {
+    if (newDate === log.date) {
+      setDate(log.date);
+      setIsEditingDate(false);
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateDailyLog(log.id, { date: newDate });
+      if (!result.ok) {
+        setDateError(result.error);
+        setDate(log.date);
+      } else {
+        setDateError(null);
+      }
+      setIsEditingDate(false);
+    });
+  }
 
   function saveHours(): void {
     const parsed = parseFloat(hours);
@@ -144,10 +165,10 @@ function LogRow({ log }: { log: DailyTimeLog }) {
     startTransition(async () => {
       const result = await updateDailyLog(log.id, { hours: parsed });
       if (!result.ok) {
-        setError(result.error);
+        setHoursError(result.error);
         setHours(String(log.hours));
       } else {
-        setError(null);
+        setHoursError(null);
       }
     });
   }
@@ -161,7 +182,35 @@ function LogRow({ log }: { log: DailyTimeLog }) {
 
   return (
     <TableRow>
-      <TableCell className="whitespace-nowrap font-medium">{formatDate(log.date)}</TableCell>
+      <TableCell className="whitespace-nowrap font-medium">
+        {isEditingDate ? (
+          <input
+            type="date"
+            value={date}
+            autoFocus
+            onChange={(event) => setDate(event.target.value)}
+            onBlur={(event) => saveDate(event.target.value)}
+            onClick={openNativePicker}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.currentTarget.blur();
+            }}
+            disabled={isPending}
+            aria-label="Edit date"
+            className="w-36 rounded border border-border bg-background px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-ring"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setDateError(null); setIsEditingDate(true); }}
+            aria-label={`Change date for ${formatDate(log.date)}`}
+            className="cursor-pointer rounded px-1.5 py-0.5 text-left hover:bg-muted disabled:opacity-50"
+            disabled={isPending}
+          >
+            {formatDate(log.date)}
+          </button>
+        )}
+        {dateError && <span className="ml-1 text-xs text-destructive" title={dateError}>!</span>}
+      </TableCell>
       <TableCell className="whitespace-nowrap text-muted-foreground">{dayName(log.date)}</TableCell>
       <TableCell className="text-right tabular-nums">
         <input
@@ -178,7 +227,7 @@ function LogRow({ log }: { log: DailyTimeLog }) {
           disabled={isPending}
           className="w-16 rounded border border-border bg-background px-1.5 py-0.5 text-right text-sm tabular-nums outline-none focus:ring-1 focus:ring-ring"
         />
-        {error && <span className="ml-1 text-xs text-destructive">!</span>}
+        {hoursError && <span className="ml-1 text-xs text-destructive" title={hoursError}>!</span>}
       </TableCell>
       <TableCell className="text-muted-foreground">{log.note ?? "—"}</TableCell>
       <TableCell className="w-8">
