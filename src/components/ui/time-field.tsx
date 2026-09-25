@@ -34,14 +34,20 @@ function minutesToValue(minutes: number): string {
   return `${pad(Math.floor(wrapped / 60))}:${pad(wrapped % 60)}`;
 }
 
-/** 12-hour label built by hand — `toLocaleTimeString` varies between the
- *  server and browser locale and would trip hydration. */
+/** Scroll the options list so `el` sits at its top. Direct scrollTop rather than
+ *  `scrollIntoView`, which lands unpredictably inside the popper's opening
+ *  transform. */
+function scrollTopTo(list: HTMLDivElement, el: HTMLButtonElement): void {
+  list.scrollTop = Math.max(0, el.offsetTop - list.offsetTop);
+}
+
+/** 24-hour "HH:MM" label built by hand — `toLocaleTimeString` renders 12-hour
+ *  in en locales and its output varies between the server and browser, which
+ *  would trip hydration. */
 export function formatTimeLabel(value: string): string {
   const minutes = timeValueToMinutes(value);
   if (minutes === null) return "";
-  const h24 = Math.floor(minutes / 60);
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  return `${h12}:${pad(minutes % 60)} ${h24 < 12 ? "am" : "pm"}`;
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`;
 }
 
 /**
@@ -101,8 +107,20 @@ export function TimeField({
   const [draft, setDraft] = React.useState("");
   const selectedRef = React.useRef<HTMLButtonElement | null>(null);
   const matchRef = React.useRef<HTMLButtonElement | null>(null);
+  const nowRef = React.useRef<HTMLButtonElement | null>(null);
+  // The list itself, once mounted. The popper's content commits on a later
+  // render than the one that flips `open` (Radix Presence mounts it from a
+  // follow-up pass), so scroll effects must wait for this, not for `open`.
+  const [listEl, setListEl] = React.useState<HTMLDivElement | null>(null);
 
   const options = React.useMemo(() => buildOptions(value), [value]);
+
+  // Quarter-hour nearest "now" — where the list lands when nothing is selected
+  // yet, so picking an afternoon time doesn't start the scroll from midnight.
+  const nowDate = new Date();
+  const nowOption = minutesToValue(
+    Math.round((nowDate.getHours() * 60 + nowDate.getMinutes()) / STEP_MINUTES) * STEP_MINUTES
+  );
 
   // While typing, scroll to the nearest option at/after the parsed draft —
   // lets the user keep scrolling manually from wherever the search landed.
@@ -115,19 +133,26 @@ export function TimeField({
     return options.find((o) => (timeValueToMinutes(o) ?? -1) >= draftMinutes) ?? options[options.length - 1] ?? null;
   }, [draftMinutes, options]);
 
-  // Jump the list to the current value each time the popover opens.
+  // Keep the typed text in sync when the popover opens.
   React.useEffect(() => {
     if (!open) return;
     setDraft(value ? formatTimeLabel(value) : "");
-    const el = selectedRef.current;
-    if (el) el.scrollIntoView({ block: "nearest" });
   }, [open, value]);
+
+  // Jump the list to the current value when the popover opens, or to the
+  // nearest quarter-hour to now when nothing is selected yet.
+  React.useEffect(() => {
+    if (!open || !listEl) return;
+    const el = selectedRef.current ?? nowRef.current;
+    if (el) scrollTopTo(listEl, el);
+  }, [open, value, listEl]);
 
   // Live-scroll to the option matching what's being typed.
   React.useEffect(() => {
-    if (!open || !draft) return;
-    matchRef.current?.scrollIntoView({ block: "nearest" });
-  }, [open, draft, matchOption]);
+    if (!open || !draft || !listEl) return;
+    const el = matchRef.current;
+    if (el) scrollTopTo(listEl, el);
+  }, [open, draft, matchOption, listEl]);
 
   function commit(next: string) {
     onChange(next);
@@ -174,7 +199,7 @@ export function TimeField({
               }
             }}
             onBlur={commitDraft}
-            placeholder="e.g. 9:30pm"
+            placeholder="e.g. 14:30"
             aria-label={`${label} — type a time`}
             className="h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />
@@ -192,17 +217,18 @@ export function TimeField({
           </Button>
         </div>
 
-        <div className="mt-2 max-h-56 overflow-y-auto" role="listbox" aria-label={label}>
+        <div ref={setListEl} className="mt-2 max-h-56 overflow-y-auto" role="listbox" aria-label={label}>
           {options.map((option) => {
             const isSelected = option === value;
             const isMatch = option === matchOption;
+            const isNow = option === nowOption;
             return (
               <button
                 key={option}
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                ref={isSelected ? selectedRef : isMatch ? matchRef : undefined}
+                ref={isSelected ? selectedRef : isMatch ? matchRef : isNow ? nowRef : undefined}
                 // Keep focus in the text box: without this the mousedown
                 // blurs it, commits whatever was typed, and closes the
                 // popover before this button's click ever fires.

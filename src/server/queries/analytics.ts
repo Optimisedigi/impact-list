@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { tasks, timeEntries } from "@/db/schema";
-import { eq, and, or, gte, lte, ne, desc, asc, lt, inArray, sql, isNull } from "drizzle-orm";
+import { eq, and, or, gte, lte, ne, desc, asc, lt, inArray, sql, isNull, isNotNull } from "drizzle-orm";
 import { getWeekBounds, getMonthBounds } from "@/lib/time-utils";
 
 export type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "all_time";
@@ -84,6 +84,16 @@ export async function getTopTasksByLeverage(limit = 3) {
   return [...todayTasks, ...leverageFill];
 }
 
+/** Tasks removed from the Focus board, most recently removed first. */
+export async function getDismissedFocusTasks(limit = 20) {
+  return db
+    .select()
+    .from(tasks)
+    .where(and(ne(tasks.status, "done"), isNotNull(tasks.dismissedFromFocus)))
+    .orderBy(desc(tasks.dismissedFromFocus), desc(tasks.id))
+    .limit(limit);
+}
+
 export async function getOverdueTasks() {
   const today = new Date().toISOString().split("T")[0];
   return db
@@ -105,6 +115,8 @@ export async function getThisWeekTasks() {
         ne(tasks.status, "done"),
         isNull(tasks.dismissedFromFocus),
         or(
+          // Starred tasks stay on the board regardless of dates
+          isNotNull(tasks.starredAt),
           // Tasks with deadlines this week
           and(lte(tasks.deadline, endDate), gte(tasks.deadline, startDate)),
           // Tasks the user marked for this week or sooner

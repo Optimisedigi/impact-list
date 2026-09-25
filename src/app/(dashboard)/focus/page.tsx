@@ -3,6 +3,7 @@ import {
   getTopTasksByLeverage,
   getOverdueTasks,
   getThisWeekTasks,
+  getDismissedFocusTasks,
 } from "@/server/queries/analytics";
 import { getActiveGoals } from "@/server/queries/growth-phases";
 import { generateRecurringTasks } from "@/server/actions/recurring-tasks";
@@ -12,6 +13,7 @@ import { categoryTargets } from "@/db/schema";
 import { TopTasks } from "./components/top-tasks";
 import { TimeAllocationTracker } from "./components/time-allocation-tracker";
 import { WeekQueue } from "./components/week-queue";
+import { RemovedFromFocus } from "./components/removed-from-focus";
 import { PhaseProgressRing } from "./components/phase-progress-ring";
 import { FocusDndProvider } from "./components/focus-dnd-provider";
 import type { PeriodKey } from "@/server/queries/analytics";
@@ -23,7 +25,7 @@ async function fetchAllocation(period: PeriodKey) {
 }
 
 export default async function FocusPage() {
-  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets] =
+  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets, removedTasks] =
     await Promise.all([
       getTopTasksByLeverage(3),
       getOverdueTasks(),
@@ -32,13 +34,16 @@ export default async function FocusPage() {
       getActiveGoals(),
       getScoredTaskSummaries(),
       db.select().from(categoryTargets),
+      getDismissedFocusTasks(),
       generateRecurringTasks({ skipRevalidate: true }),
     ]);
 
   const overdueIds = new Set(overdueTasks.map((t) => t.id));
   const topIds = new Set(topTasks.map((t) => t.id));
   const topAndWeekIds = new Set([...topTasks.map((t) => t.id), ...weekTasks.map((t) => t.id)]);
-  const standaloneOverdue = overdueTasks.filter((t) => !topAndWeekIds.has(t.id));
+  // Dismissed tasks live in the "Removed from focus" section (with their restore
+  // star) instead of the Overdue strip.
+  const standaloneOverdue = overdueTasks.filter((t) => !topAndWeekIds.has(t.id) && !t.dismissedFromFocus);
   const focusWeekTasks = weekTasks.filter((t) => !topIds.has(t.id));
   const filteredWeekTasks = focusWeekTasks.filter((t) => !t.unnumberedInFocus);
   const unnumberedWeekTasks = focusWeekTasks.filter((t) => t.unnumberedInFocus);
@@ -75,6 +80,8 @@ export default async function FocusPage() {
           </div>
         </div>
       </FocusDndProvider>
+
+      <RemovedFromFocus tasks={removedTasks} />
     </div>
   );
 }

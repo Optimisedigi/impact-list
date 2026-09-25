@@ -196,6 +196,7 @@ async function pinTopSlots(ids: number[]) {
 /**
  * Put a task onto the Focus board from elsewhere in the app. "today" lands it in
  * the Top Priority cards, "this_week" in the This Week queue (at the bottom).
+ * Also stars the task so it stays on the board.
  */
 export async function sendToFocus(id: number, when: "today" | "this_week") {
   const [{ maxOrder }] = await db.select({ maxOrder: max(tasks.sortOrder) }).from(tasks);
@@ -205,8 +206,22 @@ export async function sendToFocus(id: number, when: "today" | "this_week") {
       toComplete: when,
       dismissedFromFocus: null,
       unnumberedInFocus: null,
+      starredAt: new Date().toISOString(),
       sortOrder: (maxOrder ?? 0) + 1,
     })
+    .where(eq(tasks.id, id));
+  revalidatePath("/focus");
+  revalidatePath("/tasks");
+}
+
+/**
+ * Star a task so it stays on the Focus board. Also restores a removed task to
+ * the board without moving it from its current position.
+ */
+export async function starForFocus(id: number) {
+  await db
+    .update(tasks)
+    .set({ starredAt: new Date().toISOString(), dismissedFromFocus: null })
     .where(eq(tasks.id, id));
   revalidatePath("/focus");
   revalidatePath("/tasks");
@@ -292,12 +307,17 @@ export async function restoreFocusNumber(id: number) {
   revalidatePath("/focus");
 }
 
+/**
+ * Remove a task from the Focus board. Clears its star as well, so a starred task
+ * cannot sneak back onto the board after being removed.
+ */
 export async function dismissFromFocus(id: number) {
   await db
     .update(tasks)
-    .set({ dismissedFromFocus: new Date().toISOString() })
+    .set({ dismissedFromFocus: new Date().toISOString(), starredAt: null })
     .where(eq(tasks.id, id));
   revalidatePath("/focus");
+  revalidatePath("/tasks");
 }
 
 export async function bulkUpdateField(

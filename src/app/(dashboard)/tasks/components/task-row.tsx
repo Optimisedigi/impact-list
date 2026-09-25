@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { CategoryBadge, StatusBadge, LeverageBadge } from "./priority-badge";
 import { LogHoursDialog } from "@/app/(dashboard)/focus/components/log-hours-dialog";
 import { updateTaskField, deleteTask, sendToFocus } from "@/server/actions/tasks";
+import { FocusStar } from "@/app/(dashboard)/focus/components/focus-star";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { STATUS_OPTIONS, TO_COMPLETE_OPTIONS } from "@/lib/constants";
 import type { CategoryOption } from "@/lib/constants";
@@ -296,6 +297,7 @@ export function TaskRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
+          <FocusStar task={optimisticTask} />
           <InlineEdit
             value={optimisticTask.title}
             onSave={(v) => saveField("title", v)}
@@ -500,6 +502,7 @@ export function TaskRow({
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-start gap-2">
+                <FocusStar task={optimisticTask} className="mt-0.5" />
                 <Link href={`/tasks/${task.id}`} className="min-w-0 flex-1 text-sm font-medium leading-tight hover:underline">
                   {optimisticTask.title}
                 </Link>

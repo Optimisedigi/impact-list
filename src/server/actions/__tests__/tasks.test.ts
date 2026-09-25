@@ -47,6 +47,8 @@ import {
   deleteTask,
   deleteTasks,
   duplicateTasks,
+  sendToFocus,
+  starForFocus,
   dismissFromFocus,
   bulkUpdateField,
 } from '../tasks'
@@ -268,6 +270,72 @@ describe('tasks actions', () => {
     })
   })
 
+  describe('sendToFocus', () => {
+    it('marks the task today/this_week and clears the flags hiding it from the board', async () => {
+      await sendToFocus(4, 'this_week')
+
+      expect(mockUpdate).toHaveBeenCalledWith(tasks)
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.toComplete).toBe('this_week')
+      expect(setArg.dismissedFromFocus).toBeNull()
+      expect(setArg.unnumberedInFocus).toBeNull()
+    })
+
+    it('stars the task and puts it at the bottom of the ordering', async () => {
+      const beforeTime = new Date().toISOString()
+
+      await sendToFocus(4, 'today')
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(typeof setArg.starredAt).toBe('string')
+      expect(setArg.starredAt >= beforeTime).toBe(true)
+      expect(setArg.toComplete).toBe('today')
+      expect(setArg.sortOrder).toBe(1)
+    })
+
+    it('revalidates /focus and /tasks', async () => {
+      await sendToFocus(1, 'this_week')
+
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('starForFocus', () => {
+    it('sets starredAt to a timestamp string', async () => {
+      const beforeTime = new Date().toISOString()
+
+      await starForFocus(4)
+
+      expect(mockUpdate).toHaveBeenCalledWith(tasks)
+      const setArg = mockSet.mock.calls[0][0]
+      expect(typeof setArg.starredAt).toBe('string')
+      expect(setArg.starredAt >= beforeTime).toBe(true)
+    })
+
+    it('clears dismissedFromFocus so a removed task comes back', async () => {
+      await starForFocus(4)
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.dismissedFromFocus).toBeNull()
+    })
+
+    it('filters by task id using eq', async () => {
+      await starForFocus(4)
+
+      expect(mockWhere).toHaveBeenCalledWith({ col: 'tasks.id', val: 4 })
+    })
+
+    it('revalidates /focus and /tasks', async () => {
+      await starForFocus(1)
+
+      expect(revalidatePath).toHaveBeenCalledWith('/focus')
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledTimes(2)
+    })
+  })
+
   describe('dismissFromFocus', () => {
     it('sets dismissedFromFocus to a timestamp string', async () => {
       const beforeTime = new Date().toISOString()
@@ -281,17 +349,25 @@ describe('tasks actions', () => {
       expect(setArg.dismissedFromFocus >= beforeTime).toBe(true)
     })
 
+    it('clears the star so the task does not return to the board on its own', async () => {
+      await dismissFromFocus(4)
+
+      const setArg = mockSet.mock.calls[0][0]
+      expect(setArg.starredAt).toBeNull()
+    })
+
     it('filters by task id using eq', async () => {
       await dismissFromFocus(4)
 
       expect(mockWhere).toHaveBeenCalledWith({ col: 'tasks.id', val: 4 })
     })
 
-    it('revalidates /focus only (not /tasks)', async () => {
+    it('revalidates /focus and /tasks', async () => {
       await dismissFromFocus(1)
 
       expect(revalidatePath).toHaveBeenCalledWith('/focus')
-      expect(revalidatePath).toHaveBeenCalledTimes(1)
+      expect(revalidatePath).toHaveBeenCalledWith('/tasks')
+      expect(revalidatePath).toHaveBeenCalledTimes(2)
     })
   })
 

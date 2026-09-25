@@ -29,6 +29,7 @@ vi.mock('@/db/schema', () => ({
     deadline: 'tasks.deadline',
     toComplete: 'tasks.toComplete',
     dismissedFromFocus: 'tasks.dismissedFromFocus',
+    starredAt: 'tasks.starredAt',
     sortOrder: 'tasks.sortOrder',
   },
   timeEntries: {
@@ -50,6 +51,7 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((col) => ({ _op: 'desc', col })),
   inArray: vi.fn((col, vals) => ({ _op: 'inArray', col, vals })),
   isNull: vi.fn((col) => ({ _op: 'isNull', col })),
+  isNotNull: vi.fn((col) => ({ _op: 'isNotNull', col })),
   sql: Object.assign(vi.fn((...args: unknown[]) => ({ _type: 'sql', args })), {
     join: vi.fn(),
   }),
@@ -71,9 +73,10 @@ import {
   getTopTasksByLeverage,
   getOverdueTasks,
   getThisWeekTasks,
+  getDismissedFocusTasks,
 } from '../analytics'
 import { tasks, timeEntries } from '@/db/schema'
-import { eq, and, ne, gte, lte, lt, desc, inArray, isNull } from 'drizzle-orm'
+import { eq, and, ne, gte, lte, lt, desc, inArray, isNull, isNotNull } from 'drizzle-orm'
 import { getWeekBounds, getMonthBounds } from '@/lib/time-utils'
 
 describe('analytics queries', () => {
@@ -253,12 +256,46 @@ describe('analytics queries', () => {
       ])
     })
 
+    it('keeps starred tasks on the board even without dates or to-complete', async () => {
+      mockOrderBy.mockResolvedValueOnce([])
+
+      await getThisWeekTasks()
+
+      expect(isNotNull).toHaveBeenCalledWith(tasks.starredAt)
+    })
+
     it('orders by leverageScore descending', async () => {
       mockOrderBy.mockResolvedValueOnce([])
 
       await getThisWeekTasks()
 
       expect(desc).toHaveBeenCalledWith(tasks.leverageScore)
+    })
+  })
+
+  describe('getDismissedFocusTasks', () => {
+    it('returns non-done tasks dismissed from focus, most recently removed first', async () => {
+      const removed = [
+        { id: 9, title: 'Removed Task', dismissedFromFocus: '2026-03-01T10:00:00.000Z' },
+      ]
+      mockLimit.mockResolvedValueOnce(removed)
+
+      const result = await getDismissedFocusTasks()
+
+      expect(ne).toHaveBeenCalledWith(tasks.status, 'done')
+      expect(isNotNull).toHaveBeenCalledWith(tasks.dismissedFromFocus)
+      expect(desc).toHaveBeenCalledWith(tasks.dismissedFromFocus)
+      // Deterministic tie-break for tasks removed at the same moment
+      expect(desc).toHaveBeenCalledWith(tasks.id)
+      expect(result).toEqual(removed)
+    })
+
+    it('defaults to the 20 most recently removed tasks', async () => {
+      mockLimit.mockResolvedValueOnce([])
+
+      await getDismissedFocusTasks()
+
+      expect(mockLimit).toHaveBeenCalledWith(20)
     })
   })
 })

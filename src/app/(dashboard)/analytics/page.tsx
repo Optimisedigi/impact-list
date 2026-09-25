@@ -109,6 +109,8 @@ export default async function AnalyticsPage() {
         <p className="text-sm text-muted-foreground">Track your time allocation, completions, and leverage trends.</p>
       </div>
 
+      <WeeklyHoursChart data={hoursWeekly} />
+
       <CategoryPercentageChart data={categoryPct} />
 
       <AllocationTrend data={weeklyTrend} targets={targets} />
@@ -148,10 +150,7 @@ export default async function AnalyticsPage() {
           sinceDate={hoursSinceDate}
         />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <WeeklyHoursChart data={hoursWeekly} />
-          <MonthlyHoursChart data={hoursMonthly} />
-        </div>
+        <MonthlyHoursChart data={hoursMonthly} />
 
         <DailyLogList logs={recentLogs} />
       </div>
