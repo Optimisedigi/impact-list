@@ -50,21 +50,25 @@ export default async function FocusPage() {
 
   return (
     <div className="space-y-4 md:space-y-6 min-w-0">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-lg md:text-2xl font-bold tracking-tight">Focus Board</h1>
           <p className="text-sm text-muted-foreground hidden md:block">Your daily command center. Work on what matters most.</p>
         </div>
+        {/* Mobile only: Top Priority label shares the heading line. */}
+        <h2 className="md:hidden shrink-0 text-sm font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+          Top Priority
+        </h2>
         <div className="hidden md:block">
           <ScoreButton />
         </div>
       </div>
 
       <FocusDndProvider>
-        <div>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wider">Top Priority</h2>
+        <section aria-label="Top Priority">
+          <h2 className="hidden md:block mb-3 text-sm font-medium text-muted-foreground uppercase tracking-wider">Top Priority</h2>
           <TopTasks tasks={topTasks} overdueIds={overdueIds} queueTaskIds={filteredWeekTasks.map((t) => t.id)} />
-        </div>
+        </section>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="order-2 md:order-1 space-y-4">

@@ -309,8 +309,9 @@ function TaskCard({ task, index, isOverdue, dragListeners, dragAttributes, posit
           })()}
         </CardHeader>
         <CardContent className="pt-0">
+          {/* AI sequencing note: desktop only, hidden on mobile to keep cards compact. */}
           {task.sequenceReason && (
-            <p className="text-xs text-muted-foreground italic">
+            <p className="hidden md:block text-xs text-muted-foreground italic">
               {task.sequenceReason}
             </p>
           )}
