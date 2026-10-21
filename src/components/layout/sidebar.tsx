@@ -62,7 +62,7 @@ export function Sidebar() {
       <aside
         className={cn(
           // Base styles
-          "fixed left-0 top-0 z-40 h-screen flex-col border-r border-border bg-sidebar transition-all duration-200",
+          "fixed left-0 top-0 z-40 h-dvh flex-col border-r border-border bg-sidebar transition-all duration-200",
           // Desktop: always visible, width based on collapsed
           "hidden md:flex",
           collapsed ? "w-14 cursor-pointer hover:bg-sidebar-accent/50" : "w-44",
@@ -75,7 +75,7 @@ export function Sidebar() {
           <Zap className="h-5 w-5 shrink-0 text-sidebar-foreground" />
           {!collapsed && <span className="text-base font-semibold tracking-tight">Impact List</span>}
         </div>
-        <nav className="flex-1 space-y-1 px-1.5 py-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-1.5 py-3">
           {NAV_ITEMS.map((item) => {
             const Icon = icons[item.icon];
             const isActive = pathname.startsWith(item.href);

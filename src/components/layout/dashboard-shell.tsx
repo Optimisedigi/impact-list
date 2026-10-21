@@ -22,15 +22,15 @@ export function DashboardShell({
   const hideTitle = pathname.startsWith("/calendar");
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh">
       <Sidebar />
       {/* Mobile sticky header: hamburger + title + inline week banner */}
-      <div className="sticky top-0 z-30 border-b border-border bg-background md:hidden">
-        <div className="flex h-12 items-center gap-2 px-4">
+      <div className="sticky top-0 z-30 border-b border-border bg-background pt-[env(safe-area-inset-top)] md:hidden">
+        <div className="flex h-12 items-center gap-2 px-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0"
+            className="h-11 w-11 shrink-0"
             onClick={toggleMobile}
             aria-label="Toggle menu"
           >
@@ -50,7 +50,7 @@ export function DashboardShell({
         </div>
       </div>
       <main
-        className="min-h-screen p-3 transition-all duration-200 md:py-6 md:px-4 overflow-x-hidden"
+        className="min-h-dvh p-3 pb-[max(5.5rem,env(safe-area-inset-bottom))] md:pb-6 transition-all duration-200 md:py-6 md:px-4 overflow-x-hidden"
         style={
           { "--sidebar-width": collapsed ? "3.5rem" : "11rem" } as React.CSSProperties
         }
