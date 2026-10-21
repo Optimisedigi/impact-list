@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import { UncheckedFirst } from "./unchecked-first";
 import { updateTaskNotes } from "@/server/actions/tasks";
 import {
   Bold,
@@ -92,6 +93,7 @@ export function NotesEditor({
       TaskItem.configure({
         nested: true,
       }),
+      UncheckedFirst,
     ],
     immediatelyRender: false,
     content: parsedContent,

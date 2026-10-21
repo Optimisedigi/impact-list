@@ -402,6 +402,23 @@ describe('recurring-tasks actions', () => {
       expect(deadline.getDate()).toBe(15)
     })
 
+    it('uses the local date for the deadline just after local midnight', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        // Monday 26 Oct 2026, 00:30 local time
+        vi.setSystemTime(new Date(2026, 9, 26, 0, 30))
+        mockActiveRecurringTasks([
+          { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null, dayOfWeek: 1 },
+        ])
+
+        await generateRecurringTasks()
+
+        expect(mockValues.mock.calls[0][0].deadline).toBe('2026-10-26')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('updates lastGeneratedAt after generating a task', async () => {
       mockActiveRecurringTasks([
         { id: 1, title: 'Weekly', category: 'admin', frequency: 'weekly', lastGeneratedAt: null, client: null, estimatedHours: null, description: null, dayOfMonth: null },

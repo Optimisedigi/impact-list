@@ -4,7 +4,13 @@ import { db } from "@/db";
 import { recurringTasks, tasks } from "@/db/schema";
 import { eq, and, lte, gte, ne, isNull, isNotNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { format } from "date-fns";
 import { getWeekBounds } from "@/lib/time-utils";
+
+/** YYYY-MM-DD in local time (toISOString would give the UTC date). */
+function localDate(date: Date): string {
+  return format(date, "yyyy-MM-dd");
+}
 
 export async function getAllRecurringTasks() {
   return db.select().from(recurringTasks).orderBy(recurringTasks.title);
@@ -76,8 +82,8 @@ function nextDayOfWeek(dayOfWeek: number, from: Date = new Date()): Date {
 function getToComplete(frequency: string, deadlineStr: string): "this_week" | null {
   // Show in focus only when the target date falls within the current week
   const { start, end } = getWeekBounds(0);
-  const startDate = start.split("T")[0];
-  const endDate = end.split("T")[0];
+  const startDate = localDate(new Date(start));
+  const endDate = localDate(new Date(end));
   return deadlineStr >= startDate && deadlineStr <= endDate ? "this_week" : null;
 }
 
@@ -149,7 +155,7 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
           case "weekly":
             deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
             // If today is the target day, it's for this week; otherwise next occurrence
-            if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
+            if (localDate(deadline) === localDate(now)) {
               // Today is the day — keep it
             }
             break;
@@ -174,7 +180,7 @@ export async function generateRecurringTasks({ skipRevalidate = false }: { skipR
             break;
         }
 
-        const deadlineStr = deadline.toISOString().split("T")[0];
+        const deadlineStr = localDate(deadline);
         await db.insert(tasks).values({
           title: rt.title,
           description: rt.description,
@@ -257,7 +263,7 @@ export async function regenerateRecurringTask(recurringTaskId: number) {
     case "weekly": {
       deadline = nextDayOfWeek(rt.dayOfWeek ?? 1, now);
       // If completing on the same day it's due, push to next week
-      if (deadline.toISOString().split("T")[0] === now.toISOString().split("T")[0]) {
+      if (localDate(deadline) === localDate(now)) {
         deadline.setDate(deadline.getDate() + 7);
       }
       break;
@@ -283,7 +289,7 @@ export async function regenerateRecurringTask(recurringTaskId: number) {
       break;
   }
 
-  const deadlineStr = deadline.toISOString().split("T")[0];
+  const deadlineStr = localDate(deadline);
   await db.insert(tasks).values({
     title: rt.title,
     description: rt.description,
