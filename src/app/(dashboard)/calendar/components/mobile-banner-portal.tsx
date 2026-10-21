@@ -8,7 +8,7 @@ interface Props {
 }
 
 // Portal that targets the dashboard shell's mobile-only banner slot. Lets a
-// page render content next to the "Impact List" title without restructuring
+// page render content next to the menu button without restructuring
 // the shell. Falls back to nothing if the slot isn't mounted yet (SSR).
 export function MobileBannerPortal({ children }: Props) {
   const hydrated = useHydrated();

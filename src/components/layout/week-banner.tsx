@@ -73,13 +73,16 @@ export async function WeekBanner() {
 
   return (
     <div className="mb-0 flex min-w-0 items-center justify-end md:mb-4">
-      <span className="min-w-0 truncate text-xs md:text-base font-medium text-primary md:whitespace-normal">
+      {/* Mobile wraps instead of truncating so tenure and quote stay fully
+          visible; the quote is an inline-block there so it moves to the next
+          line as a unit. Desktop styling is unchanged. */}
+      <span className="min-w-0 overflow-hidden text-ellipsis text-right text-xs md:text-left md:text-base font-medium text-primary">
         <span className="relative inline-block">{tenureLabel}</span>
         <span className="hidden md:inline">
           {bizContext?.businessName ? ` of ${bizContext.businessName}` : ""} —{" "}
         </span>
         <span className="md:hidden"> — </span>
-        <span className="text-black">{weekQuote}</span>
+        <span className="inline-block text-black md:inline">{weekQuote}</span>
       </span>
     </div>
   );

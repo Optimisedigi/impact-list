@@ -161,7 +161,7 @@ export function YearGrid({
       </div>
 
       {/* Mobile: chips rendered into the shell's mobile header slot, to the
-          right of the "Impact List" title. The portal strips the inner
+          right of the menu button. The portal strips the inner
           filter's border/padding so chips line up with the header height,
           and a larger touch size makes them easy to tap. */}
       <MobileBannerPortal>
