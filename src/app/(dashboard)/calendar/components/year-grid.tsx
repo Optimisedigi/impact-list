@@ -196,7 +196,7 @@ export function YearGrid({
         type="button"
         size="icon"
         onClick={() => setDialog({ open: true, mode: "create" })}
-        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 h-12 w-12 md:bottom-6 md:right-6 rounded-full shadow-lg"
+        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full shadow-lg"
         aria-label="Add event"
         title="Add event"
       >

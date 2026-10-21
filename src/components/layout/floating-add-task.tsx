@@ -267,7 +267,7 @@ function FloatingAddTaskForm() {
     <>
       <Button
         size="icon"
-        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 h-14 w-14 md:bottom-6 md:right-6 rounded-full shadow-lg"
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
         onClick={() => setOpen(true)}
       >
         <Plus className="h-6 w-6" />
