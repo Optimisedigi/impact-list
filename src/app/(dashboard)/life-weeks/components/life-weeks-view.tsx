@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Expand, Shrink } from "lucide-react";
+import { Check, ChevronDown, Expand, Shrink } from "lucide-react";
 import { saveLifeWeeksSettings, type LifeWeeksSettingsData } from "@/server/actions/life-weeks";
 import { buildLifeWeeksGrid } from "@/lib/life-weeks";
 import { cn } from "@/lib/utils";
@@ -28,9 +28,9 @@ const fmtDate = (d: Date) =>
 
 function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 bg-card p-3">
+    <div className="flex min-w-0 flex-col gap-1 bg-card p-3">
       <div className="text-[11px] uppercase tracking-[0.09em] text-muted-foreground">{label}</div>
-      <div className="text-lg font-medium">{value}</div>
+      <div className="text-base font-medium sm:text-lg">{value}</div>
       {sub && <div className="text-[13px] text-muted-foreground">{sub}</div>}
     </div>
   );
@@ -46,6 +46,9 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
+  // Mobile only: the numbers panel starts collapsed once they're set; on
+  // first use it starts open so the empty page isn't a dead end.
+  const [numbersOpen, setNumbersOpen] = useState(!initial);
 
   const grid = useMemo(() => {
     if (!settings) return null;
@@ -110,52 +113,87 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-3">
-          <div className="space-y-2">
-            <Label htmlFor="lw-dob" className="text-[13px]">
-              I was born on
-            </Label>
-            <Input
-              id="lw-dob"
-              type="date"
-              value={form.dateOfBirth}
-              onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-              className="w-44"
+        <div className="w-full rounded-2xl border bg-card md:w-auto">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 rounded-2xl p-3 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:hidden"
+            aria-expanded={numbersOpen}
+            aria-controls="lw-numbers"
+            onClick={() => setNumbersOpen((o) => !o)}
+          >
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[13px] font-medium">Important numbers</span>
+              {settings && !numbersOpen && (
+                <span className="truncate text-xs text-muted-foreground">
+                  Born {fmtDate(new Date(`${settings.dateOfBirth}T00:00:00`))}, to{" "}
+                  {settings.lifeExpectancyYears} years
+                </span>
+              )}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "h-4 w-4 flex-none text-muted-foreground transition-transform motion-reduce:transition-none",
+                numbersOpen && "rotate-180",
+              )}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lw-expectancy" className="text-[13px]">
-              Expected years to live until
-            </Label>
-            <Input
-              id="lw-expectancy"
-              type="number"
-              min="1"
-              max="130"
-              value={form.lifeExpectancyYears}
-              onChange={(e) => setForm({ ...form, lifeExpectancyYears: e.target.value })}
-              className="w-24"
-            />
-          </div>
-          <Button onClick={handleSave} disabled={isPending} className="rounded-full">
-            {saved ? (
-              <>
-                <Check className="mr-1 h-3 w-3" />
-                Saved
-              </>
-            ) : isPending ? (
-              "Saving..."
-            ) : (
-              "Save & calculate"
+          </button>
+          <div
+            id="lw-numbers"
+            className={cn(
+              "flex-wrap items-end gap-3 px-3 pb-3 md:flex md:pt-3",
+              numbersOpen ? "flex" : "hidden",
             )}
-          </Button>
-          {error && <p className="w-full text-xs text-destructive">{error}</p>}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="lw-dob" className="text-[13px]">
+                I was born on
+              </Label>
+              <Input
+                id="lw-dob"
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                className="w-44"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lw-expectancy" className="text-[13px]">
+                Expected years to live until
+              </Label>
+              <Input
+                id="lw-expectancy"
+                type="number"
+                min="1"
+                max="130"
+                value={form.lifeExpectancyYears}
+                onChange={(e) => setForm({ ...form, lifeExpectancyYears: e.target.value })}
+                className="w-24"
+              />
+            </div>
+            <Button onClick={handleSave} disabled={isPending} className="rounded-full">
+              {saved ? (
+                <>
+                  <Check className="mr-1 h-3 w-3" />
+                  Saved
+                </>
+              ) : isPending ? (
+                "Saving..."
+              ) : (
+                "Save & calculate"
+              )}
+            </Button>
+            {error && <p className="w-full text-xs text-destructive">{error}</p>}
+          </div>
         </div>
       </div>
 
       {grid && stats && (
         <>
-          <div className="grid gap-px overflow-hidden rounded-2xl border bg-border [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
+          <div
+            data-testid="lw-stats"
+            className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border bg-border sm:[grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]"
+          >
             <Stat
               label="Today"
               value={fmtDate(stats.today)}
@@ -171,11 +209,11 @@ export function LifeWeeksView({ initial }: { initial: LifeWeeksSettingsData | nu
               value={<span className="font-mono">{stats.remaining.toLocaleString()}</span>}
               sub={`of ${grid.totalWeeks.toLocaleString()} in total`}
             />
-            <div className="flex flex-col gap-1.5 bg-card p-3">
+            <div className="flex min-w-0 flex-col gap-1.5 bg-card p-3">
               <div className="text-[11px] uppercase tracking-[0.09em] text-muted-foreground">
                 If I live to {stats.years}
               </div>
-              <div className="text-lg font-medium">
+              <div className="text-base font-medium sm:text-lg">
                 I&apos;ve lived <span className="font-mono">{stats.pct}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
