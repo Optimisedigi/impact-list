@@ -78,6 +78,48 @@ export function getWeekRanges(startDate?: string | null, now: Date = new Date())
   return ranges;
 }
 
+/** The `count` most recent Monday-based weeks, ending with the current week. */
+export function getRecentWeekRanges(count: number, now: Date = new Date()): WeekRange[] {
+  if (count <= 0) return [];
+  const firstMonday = getMondayOf(now);
+  firstMonday.setDate(firstMonday.getDate() - (count - 1) * 7);
+  return getWeekRanges(toLocalISO(firstMonday), now);
+}
+
+export interface RecentWeekHours {
+  /** Monday of the week, YYYY-MM-DD (local). */
+  weekCommencing: string;
+  /** Short axis label for the week commencing date, e.g. "Oct 5". */
+  label: string;
+  total: number;
+}
+
+function formatWeekLabel(weekCommencing: string): string {
+  return new Date(`${weekCommencing}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/**
+ * Weekly totals for the `count` most recent weeks, using the same bucketing as
+ * the analytics "Hours per week" chart. Weeks without logs report 0 hours.
+ */
+export function buildRecentWeeklyHours(
+  logs: DailyLogRow[],
+  count: number,
+  now: Date = new Date()
+): RecentWeekHours[] {
+  return aggregateByWeek(logs, getRecentWeekRanges(count, now)).map((row) => {
+    const weekCommencing = row.weekCommencing as string;
+    return {
+      weekCommencing,
+      label: formatWeekLabel(weekCommencing),
+      total: typeof row.total === "number" ? row.total : 0,
+    };
+  });
+}
+
 /** All-time stats. Average is over distinct days that actually have logs. */
 export function aggregateStats(logs: DailyLogRow[]): DailyHoursStats {
   let totalHours = 0;
@@ -189,4 +231,14 @@ export async function getDailyHoursByCategory(start?: string, end?: string): Pro
   const logs =
     start && end ? await getDailyLogsByDateRange(start, end) : await getAllLogs();
   return aggregateByCategory(logs);
+}
+
+/** Hours worked in each of the last `count` weeks (current week last). */
+export async function getRecentWeeklyHours(count = 4, now: Date = new Date()): Promise<RecentWeekHours[]> {
+  const ranges = getRecentWeekRanges(count, now);
+  const first = ranges[0];
+  const last = ranges[ranges.length - 1];
+  if (!first || !last) return [];
+  const logs = await getDailyLogsByDateRange(toLocalISO(first.monday), toLocalISO(last.sunday));
+  return buildRecentWeeklyHours(logs, count, now);
 }

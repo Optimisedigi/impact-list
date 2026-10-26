@@ -5,6 +5,8 @@ import {
   getThisWeekTasks,
   getDismissedFocusTasks,
 } from "@/server/queries/analytics";
+import { getRecentWeeklyHours } from "@/server/queries/daily-logs";
+import { RecentWeeksHoursChart } from "@/app/(dashboard)/analytics/components/hours-charts";
 import { getActiveGoals } from "@/server/queries/growth-phases";
 import { generateRecurringTasks } from "@/server/actions/recurring-tasks";
 import { getScoredTaskSummaries } from "@/server/queries/tasks";
@@ -25,7 +27,7 @@ async function fetchAllocation(period: PeriodKey) {
 }
 
 export default async function FocusPage() {
-  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets, removedTasks] =
+  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets, removedTasks, recentWeeklyHours] =
     await Promise.all([
       getTopTasksByLeverage(3),
       getOverdueTasks(),
@@ -35,6 +37,7 @@ export default async function FocusPage() {
       getScoredTaskSummaries(),
       db.select().from(categoryTargets),
       getDismissedFocusTasks(),
+      getRecentWeeklyHours(4),
       generateRecurringTasks({ skipRevalidate: true }),
     ]);
 
@@ -78,6 +81,7 @@ export default async function FocusPage() {
               targets={targets}
               fetchAllocation={fetchAllocation}
             />
+            <RecentWeeksHoursChart data={recentWeeklyHours} />
           </div>
           <div className="order-1 md:order-2">
             <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} unnumberedTasks={unnumberedWeekTasks} />

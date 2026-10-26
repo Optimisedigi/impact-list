@@ -30,6 +30,7 @@ function validateDate(date: string): string | null {
 
 function revalidate(): void {
   revalidatePath("/analytics");
+  revalidatePath("/focus");
 }
 
 export async function createDailyLog(data: {

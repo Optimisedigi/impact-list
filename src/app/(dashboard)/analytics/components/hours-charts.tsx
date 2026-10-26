@@ -12,6 +12,7 @@ import {
   LabelList,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { RecentWeekHours } from "@/server/queries/daily-logs";
 
 const BAR_GREEN = "hsl(150 60% 45%)";
 
@@ -99,6 +100,90 @@ export function WeeklyHoursChart({
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatHours(value: number): string {
+  return `${Math.round(value * 10) / 10}h`;
+}
+
+/** Bar value label that, unlike TotalLabel, also renders zero-hour weeks. */
+export function HoursValueLabel(props: Record<string, unknown>) {
+  const { x, y, width, value } = props as {
+    x: number;
+    y: number;
+    width: number;
+    value: number | undefined;
+  };
+  return (
+    <text
+      x={x + width / 2}
+      y={y - 6}
+      fill="var(--color-foreground)"
+      fontSize={11}
+      fontWeight={600}
+      textAnchor="middle"
+    >
+      {formatHours(value ?? 0)}
+    </text>
+  );
+}
+
+/** Compact weekly hours chart for the Focus board: the most recent weeks only. */
+export function RecentWeeksHoursChart({ data }: { data: RecentWeekHours[] }): React.ReactElement {
+  const hasData = data.some((d) => d.total > 0);
+
+  return (
+    <Card className="glass">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base">Weekly Hours</CardTitle>
+          <span className="text-xs text-muted-foreground">Last {data.length} weeks</span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!hasData ? (
+          <p className="text-sm text-muted-foreground">No hours logged in the last {data.length} weeks.</p>
+        ) : (
+          <>
+            <ul className="sr-only">
+              {data.map((d) => (
+                <li key={d.weekCommencing}>
+                  Week of {d.label}: {formatHours(d.total)}
+                </li>
+              ))}
+            </ul>
+            <div aria-hidden="true">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data} margin={{ top: 20, right: 4, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis dataKey="label" tick={TICK_STYLE} interval={0} tickLine={false} />
+                  <YAxis tick={TICK_STYLE} allowDecimals={false} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    cursor={{ fill: "var(--color-muted)", opacity: 0.4 }}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const row = payload[0]?.payload as RecentWeekHours | undefined;
+                      if (!row) return null;
+                      return (
+                        <div style={tooltipBox}>
+                          <p style={{ fontWeight: 600 }}>w/c {row.label}</p>
+                          <p style={{ marginTop: 4 }}>{formatHours(row.total)}</p>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar dataKey="total" fill={BAR_GREEN} radius={[2, 2, 0, 0]} maxBarSize={48}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    <LabelList dataKey="total" content={HoursValueLabel as any} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
