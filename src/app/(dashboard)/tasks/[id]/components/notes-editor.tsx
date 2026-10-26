@@ -70,6 +70,8 @@ export function NotesEditor({
     "idle"
   );
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Editor with edits not yet saved; flushed on unmount so they aren't lost.
+  const unsavedEditor = useRef<{ getJSON: () => object } | null>(null);
 
   const parsedContent = initialContent ? JSON.parse(initialContent) : undefined;
 
@@ -106,7 +108,10 @@ export function NotesEditor({
     onUpdate: ({ editor }) => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
       setSaveStatus("idle");
+      unsavedEditor.current = editor;
       saveTimeout.current = setTimeout(() => {
+        saveTimeout.current = null;
+        unsavedEditor.current = null;
         save(editor.getJSON());
       }, 1000);
     },
@@ -115,8 +120,14 @@ export function NotesEditor({
   useEffect(() => {
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
+      saveTimeout.current = null;
+      const pending = unsavedEditor.current;
+      unsavedEditor.current = null;
+      if (pending) {
+        void updateTaskNotes(taskId, JSON.stringify(pending.getJSON()));
+      }
     };
-  }, []);
+  }, [taskId]);
 
   return (
     <div className="rounded-lg border bg-card">
