@@ -38,7 +38,7 @@ export default async function FocusPage() {
       getScoredTaskSummaries(),
       db.select().from(categoryTargets),
       getDismissedFocusTasks(),
-      getBusinessContext().then((ctx) => getWeeklyHoursHistory(ctx?.startDate || null, 4)),
+      getBusinessContext().then((ctx) => getWeeklyHoursHistory(ctx?.startDate || null, 12)),
       generateRecurringTasks({ skipRevalidate: true }),
     ]);
 

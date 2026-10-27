@@ -16,6 +16,7 @@ import { useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { averageCompletedWeekHours, formatWeekRange, sliceWeekWindow } from "@/lib/weekly-hours";
 import type { WeekHours } from "@/server/queries/daily-logs";
 
@@ -137,16 +138,22 @@ export function HoursValueLabel(props: Record<string, unknown>) {
   );
 }
 
-const WINDOW_WEEKS = 4;
+const DESKTOP_WINDOW_WEEKS = 12;
+const MOBILE_WINDOW_WEEKS = 6;
+/** Matches Tailwind's `md` breakpoint used by the Focus layout. */
+const DESKTOP_QUERY = "(min-width: 768px)";
 
 /**
- * Compact weekly hours chart for the Focus board. Always shows four weeks,
- * starting at the most recent; the arrows step the window one week at a time.
+ * Compact weekly hours chart for the Focus board. Shows twelve weeks on desktop
+ * and six on mobile, starting at the most recent; the arrows step the window
+ * one week at a time.
  */
 export function RecentWeeksHoursChart({ data }: { data: WeekHours[] }): React.ReactElement {
   const [requestedOffset, setRequestedOffset] = useState(0);
   const reduceMotion = useReducedMotion();
-  const { weeks, offset, maxOffset } = sliceWeekWindow(data, WINDOW_WEEKS, requestedOffset);
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const windowWeeks = isDesktop ? DESKTOP_WINDOW_WEEKS : MOBILE_WINDOW_WEEKS;
+  const { weeks, offset, maxOffset } = sliceWeekWindow(data, windowWeeks, requestedOffset);
   const hasAnyHours = data.some((d) => d.total > 0);
   const average = averageCompletedWeekHours(weeks);
   const first = weeks[0];
@@ -158,9 +165,9 @@ export function RecentWeeksHoursChart({ data }: { data: WeekHours[] }): React.Re
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <CardTitle className="text-base">Weekly Hours</CardTitle>
           {hasAnyHours && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground md:text-sm">
               Average weekly hours{" "}
-              <span className="font-semibold text-foreground tabular-nums">{formatHours(average)}</span>
+              <span className="font-semibold text-foreground tabular-nums md:text-base">{formatHours(average)}</span>
             </p>
           )}
         </div>
@@ -182,7 +189,13 @@ export function RecentWeeksHoursChart({ data }: { data: WeekHours[] }): React.Re
               <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 160 }}>
                 <BarChart data={weeks} margin={{ top: 20, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                  <XAxis dataKey="label" tick={TICK_STYLE} interval={0} tickLine={false} />
+                  {/* Twelve week labels can crowd a narrow desktop card, so let Recharts drop overlapping ones there. */}
+                  <XAxis
+                    dataKey="label"
+                    tick={TICK_STYLE}
+                    interval={isDesktop ? "preserveStartEnd" : 0}
+                    tickLine={false}
+                  />
                   <YAxis tick={TICK_STYLE} allowDecimals={false} tickLine={false} axisLine={false} />
                   <Tooltip
                     cursor={{ fill: "var(--color-muted)", opacity: 0.4 }}
