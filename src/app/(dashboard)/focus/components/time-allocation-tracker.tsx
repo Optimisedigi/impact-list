@@ -48,8 +48,8 @@ export function TimeAllocationTracker({
   const targetMap = Object.fromEntries(targets.map((t) => [t.category, t.targetPercentage]));
 
   return (
-    <Card className="glass">
-      <CardHeader className="pb-3">
+    <Card className="glass gap-3 py-4 md:gap-6 md:py-6">
+      <CardHeader className="px-4 pb-0 md:px-6 md:pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">Time Allocation</CardTitle>
           <Tabs value={period} onValueChange={(v) => changePeriod(v as PeriodKey)}>
@@ -63,7 +63,7 @@ export function TimeAllocationTracker({
           </Tabs>
         </div>
       </CardHeader>
-      <CardContent className={`space-y-3 ${isPending ? "opacity-60" : ""}`}>
+      <CardContent className={`space-y-3 px-4 md:px-6 ${isPending ? "opacity-60" : ""}`}>
         {isPending && totalHours === 0 ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : totalHours === 0 ? (

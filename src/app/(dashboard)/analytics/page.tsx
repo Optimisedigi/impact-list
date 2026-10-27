@@ -32,19 +32,13 @@ import {
 import { HoursStats } from "./components/hours-stats";
 import { WeeklyHoursChart, MonthlyHoursChart } from "./components/hours-charts";
 import { DailyLogList } from "./components/daily-log-list";
+import { averageOfTotals } from "@/lib/weekly-hours";
 
 function localISO(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
-}
-
-/** Average of bucket totals, counting only buckets that have logged hours. */
-function averageOfTotals(totals: number[]): number {
-  const active = totals.filter((t) => t > 0);
-  if (active.length === 0) return 0;
-  return active.reduce((acc, t) => acc + t, 0) / active.length;
 }
 
 export default async function AnalyticsPage() {

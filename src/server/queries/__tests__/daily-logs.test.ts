@@ -18,7 +18,7 @@ import {
   getWeekRanges,
   getMondayOf,
   getRecentWeekRanges,
-  buildRecentWeeklyHours,
+  buildWeeklyHoursHistory,
   UNTAGGED_KEY,
   type DailyLogRow,
 } from "../daily-logs";
@@ -114,39 +114,48 @@ describe("daily-logs pure helpers", () => {
     });
   });
 
-  describe("buildRecentWeeklyHours", () => {
+  describe("buildWeeklyHoursHistory", () => {
     const now = new Date("2026-06-10T12:00:00");
 
-    it("totals the last four weeks and reports zero for weeks without logs", () => {
+    it("covers every week from the start date, reporting zero for weeks without logs", () => {
       const logs: DailyLogRow[] = [
-        { date: "2026-05-01", hours: 9, category: null }, // older than the window
-        { date: "2026-05-19", hours: 3, category: "admin" },
-        { date: "2026-05-24", hours: 1.5, category: null },
+        { date: "2026-05-01", hours: 9, category: null }, // before the start date
+        { date: "2026-05-05", hours: 3, category: "admin" },
+        { date: "2026-05-10", hours: 1.5, category: null },
         { date: "2026-06-08", hours: 6, category: "admin" },
       ];
-      expect(buildRecentWeeklyHours(logs, 4, now)).toEqual([
-        { weekCommencing: "2026-05-18", label: "May 18", total: 4.5 },
-        { weekCommencing: "2026-05-25", label: "May 25", total: 0 },
-        { weekCommencing: "2026-06-01", label: "Jun 1", total: 0 },
-        { weekCommencing: "2026-06-08", label: "Jun 8", total: 6 },
+      const result = buildWeeklyHoursHistory(logs, "2026-05-04", 4, now);
+      expect(result).toEqual([
+        { weekCommencing: "2026-05-04", label: "May 4", total: 4.5, isCurrentWeek: false },
+        { weekCommencing: "2026-05-11", label: "May 11", total: 0, isCurrentWeek: false },
+        { weekCommencing: "2026-05-18", label: "May 18", total: 0, isCurrentWeek: false },
+        { weekCommencing: "2026-05-25", label: "May 25", total: 0, isCurrentWeek: false },
+        { weekCommencing: "2026-06-01", label: "Jun 1", total: 0, isCurrentWeek: false },
+        { weekCommencing: "2026-06-08", label: "Jun 8", total: 6, isCurrentWeek: true },
       ]);
     });
 
-    it("matches the analytics weekly totals for the same weeks", () => {
+    it("pads to the minimum number of recent weeks when history is shorter", () => {
+      const logs: DailyLogRow[] = [{ date: "2026-06-09", hours: 2, category: null }];
+      const result = buildWeeklyHoursHistory(logs, "2026-06-09", 4, now);
+      expect(result.map((w) => w.weekCommencing)).toEqual([
+        "2026-05-18",
+        "2026-05-25",
+        "2026-06-01",
+        "2026-06-08",
+      ]);
+      expect(result.map((w) => w.total)).toEqual([0, 0, 0, 2]);
+    });
+
+    it("matches the analytics weekly totals for the same start date", () => {
       const logs: DailyLogRow[] = [
         { date: "2026-05-20", hours: 2, category: "admin" },
         { date: "2026-06-03", hours: 4, category: null },
       ];
-      const analytics = aggregateByWeek(logs, getWeekRanges("2026-04-01", now)).slice(-4);
-      const recent = buildRecentWeeklyHours(logs, 4, now);
-      expect(recent.map((w) => w.weekCommencing)).toEqual(analytics.map((w) => w.weekCommencing));
-      expect(recent.map((w) => w.total)).toEqual(analytics.map((w) => w.total));
-    });
-
-    it("returns four zero-hour weeks when nothing is logged", () => {
-      const result = buildRecentWeeklyHours([], 4, now);
-      expect(result).toHaveLength(4);
-      expect(result.every((w) => w.total === 0)).toBe(true);
+      const analytics = aggregateByWeek(logs, getWeekRanges("2026-04-01", now));
+      const history = buildWeeklyHoursHistory(logs, "2026-04-01", 4, now);
+      expect(history.map((w) => w.weekCommencing)).toEqual(analytics.map((w) => w.weekCommencing));
+      expect(history.map((w) => w.total)).toEqual(analytics.map((w) => w.total));
     });
   });
 

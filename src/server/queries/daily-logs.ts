@@ -86,12 +86,14 @@ export function getRecentWeekRanges(count: number, now: Date = new Date()): Week
   return getWeekRanges(toLocalISO(firstMonday), now);
 }
 
-export interface RecentWeekHours {
+export interface WeekHours {
   /** Monday of the week, YYYY-MM-DD (local). */
   weekCommencing: string;
   /** Short axis label for the week commencing date, e.g. "Oct 5". */
   label: string;
   total: number;
+  /** True for the in-progress week containing `now`. */
+  isCurrentWeek: boolean;
 }
 
 function formatWeekLabel(weekCommencing: string): string {
@@ -102,20 +104,26 @@ function formatWeekLabel(weekCommencing: string): string {
 }
 
 /**
- * Weekly totals for the `count` most recent weeks, using the same bucketing as
- * the analytics "Hours per week" chart. Weeks without logs report 0 hours.
+ * Weekly totals from `startDate` (same rule as the analytics "Hours per week"
+ * chart) up to the current week, padded to at least `minWeeks` recent weeks.
+ * Weeks without logs report 0 hours.
  */
-export function buildRecentWeeklyHours(
+export function buildWeeklyHoursHistory(
   logs: DailyLogRow[],
-  count: number,
+  startDate: string | null | undefined,
+  minWeeks: number,
   now: Date = new Date()
-): RecentWeekHours[] {
-  return aggregateByWeek(logs, getRecentWeekRanges(count, now)).map((row) => {
+): WeekHours[] {
+  const history = getWeekRanges(startDate, now);
+  const ranges = history.length >= minWeeks ? history : getRecentWeekRanges(minWeeks, now);
+  const currentWeekCommencing = toLocalISO(getMondayOf(now));
+  return aggregateByWeek(logs, ranges).map((row) => {
     const weekCommencing = row.weekCommencing as string;
     return {
       weekCommencing,
       label: formatWeekLabel(weekCommencing),
       total: typeof row.total === "number" ? row.total : 0,
+      isCurrentWeek: weekCommencing === currentWeekCommencing,
     };
   });
 }
@@ -233,12 +241,12 @@ export async function getDailyHoursByCategory(start?: string, end?: string): Pro
   return aggregateByCategory(logs);
 }
 
-/** Hours worked in each of the last `count` weeks (current week last). */
-export async function getRecentWeeklyHours(count = 4, now: Date = new Date()): Promise<RecentWeekHours[]> {
-  const ranges = getRecentWeekRanges(count, now);
-  const first = ranges[0];
-  const last = ranges[ranges.length - 1];
-  if (!first || !last) return [];
-  const logs = await getDailyLogsByDateRange(toLocalISO(first.monday), toLocalISO(last.sunday));
-  return buildRecentWeeklyHours(logs, count, now);
+/** Weekly hours history for the Focus board chart (current week last). */
+export async function getWeeklyHoursHistory(
+  businessStartDate?: string | null,
+  minWeeks = 4
+): Promise<WeekHours[]> {
+  const logs = await getAllLogs();
+  const startDate = businessStartDate ?? aggregateStats(logs).firstLogDate;
+  return buildWeeklyHoursHistory(logs, startDate, minWeeks);
 }

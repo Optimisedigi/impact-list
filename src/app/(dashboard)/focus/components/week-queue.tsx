@@ -9,7 +9,7 @@ import { DEFAULT_CATEGORIES } from "@/lib/constants";
 import type { CategoryKey } from "@/lib/constants";
 import type { Task } from "@/types";
 import { formatDateShort, todayLocalISO } from "@/lib/time-utils";
-import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock } from "lucide-react";
+import { Zap, Repeat, X, Check, GripVertical, ArrowUpToLine, FileText, Play, Pause, AlertTriangle, MoreHorizontal, CalendarClock, ListOrdered, Hash } from "lucide-react";
 import { updateTaskField, dismissFromFocus, reorderFocusTasks, promoteToTopPriority, setFocusPosition, removeFocusNumber, restoreFocusNumber } from "@/server/actions/tasks";
 import { quickLogHours } from "@/server/actions/time-entries";
 import { useTaskTimer } from "@/components/timer/task-timer-context";
@@ -27,6 +27,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -59,6 +62,30 @@ function SortableQueueItem({ task, isOverdue, position, positionCount, onMovePos
     <div ref={setNodeRef} style={style}>
       <QueueItem task={task} isOverdue={isOverdue} dragListeners={listeners} dragAttributes={attributes} position={position} positionCount={positionCount} onMovePosition={(newIndex) => onMovePosition(task.id, newIndex)} onRemoveNumber={onRemoveNumber} onMoveUp={onMoveUp} />
     </div>
+  );
+}
+
+function PositionMenuItems({ position, positionCount, onMovePosition, onRemoveNumber }: { position: number; positionCount: number; onMovePosition: (newIndex: number) => void; onRemoveNumber?: () => void }) {
+  return (
+    <>
+      {Array.from({ length: positionCount }, (_, i) => (
+        <DropdownMenuItem
+          key={i + 1}
+          onClick={() => onMovePosition(i)}
+          className={`justify-center tabular-nums ${i + 1 === position ? "font-semibold text-foreground" : ""}`}
+        >
+          {i + 1}
+        </DropdownMenuItem>
+      ))}
+      {onRemoveNumber && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onRemoveNumber} className="justify-center text-xs text-muted-foreground">
+            Remove number
+          </DropdownMenuItem>
+        </>
+      )}
+    </>
   );
 }
 
@@ -148,7 +175,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
 
   if (confirming) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 px-2 py-1.5 md:px-3 md:py-2">
         <span className="text-sm break-words min-w-0 flex-1">{task.title}</span>
         <div className="flex items-center gap-2 shrink-0">
           <label className="text-xs text-muted-foreground whitespace-nowrap">Hours:</label>
@@ -179,7 +206,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
 
   return (
     <div
-      className={`relative flex flex-wrap items-center gap-y-1 rounded-md border px-3 py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
+      className={`relative flex flex-nowrap items-center gap-y-1 rounded-md border px-2 py-1 md:flex-wrap md:px-3 md:py-2 group ${isOverdue ? "glow-red border-red-500/40" : "border-border/50"} ${isPending ? "opacity-40" : ""}`}
     >
       <div className="flex items-start gap-2 min-w-0 flex-1">
         {position !== undefined && onMovePosition && positionCount ? (
@@ -187,37 +214,21 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="shrink-0 cursor-pointer rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
+                className="hidden md:block shrink-0 cursor-pointer rounded border border-border/50 bg-transparent px-1.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
                 title="Set priority position"
               >
                 #{position}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-16">
-              {Array.from({ length: positionCount }, (_, i) => (
-                <DropdownMenuItem
-                  key={i + 1}
-                  onClick={() => onMovePosition(i)}
-                  className={`justify-center tabular-nums ${i + 1 === position ? "font-semibold text-foreground" : ""}`}
-                >
-                  {i + 1}
-                </DropdownMenuItem>
-              ))}
-              {onRemoveNumber && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onRemoveNumber} className="justify-center text-xs text-muted-foreground">
-                    Remove number
-                  </DropdownMenuItem>
-                </>
-              )}
+              <PositionMenuItems position={position} positionCount={positionCount} onMovePosition={onMovePosition} onRemoveNumber={onRemoveNumber} />
             </DropdownMenuContent>
           </DropdownMenu>
         ) : onRestoreNumber ? (
           <button
             type="button"
             onClick={onRestoreNumber}
-            className="shrink-0 cursor-pointer rounded border border-dashed border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60 outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
+            className="hidden md:block shrink-0 cursor-pointer rounded border border-dashed border-border/50 px-1.5 py-0.5 text-xs font-medium text-muted-foreground/60 outline-none hover:text-foreground hover:border-border focus:ring-1 focus:ring-ring -ml-1 mt-0.5"
             title="Add a priority number"
           >
             #
@@ -225,7 +236,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
         ) : null}
         {dragListeners && (
           <button
-            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1 mt-1"
+            className="hidden md:block cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 -ml-1 mt-1"
             {...dragListeners}
             {...dragAttributes}
           >
@@ -251,7 +262,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           <Link
             href={`/tasks?highlight=${task.id}`}
             onClick={handleTitleClick}
-            className="text-sm hover:underline break-words min-w-0 flex-1"
+            className="text-sm hover:underline break-words min-w-0 flex-1 line-clamp-2 md:line-clamp-none"
             title="Double-click to rename"
           >
             {optimisticTask.title}
@@ -261,7 +272,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           <Repeat className="h-3 w-3 shrink-0 text-muted-foreground mt-1" />
         )}
       </div>
-      <div className="flex items-center gap-1 shrink-0 ml-2">
+      <div className="flex items-center gap-1 shrink-0 ml-1 md:ml-2">
         {editingDeadline ? (
           <input
             type="date"
@@ -279,7 +290,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
         ) : (
           <button
             type="button"
-            className={`text-xs text-muted-foreground cursor-pointer hover:text-foreground ${optimisticTask.deadline ? "" : "md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"}`}
+            className={`hidden md:inline text-xs text-muted-foreground cursor-pointer hover:text-foreground ${optimisticTask.deadline ? "" : "md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"}`}
             onClick={() => setEditingDeadline(true)}
             title={optimisticTask.deadline ? "Click to edit deadline" : "Add due date"}
           >
@@ -375,7 +386,7 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
           <Button
             variant="ghost"
             size="icon"
-            className="ml-2 h-7 w-7 shrink-0 text-muted-foreground md:hidden"
+            className="ml-1 h-7 w-7 shrink-0 text-muted-foreground md:hidden"
             title="Task actions"
           >
             <MoreHorizontal className="h-4 w-4" />
@@ -422,6 +433,22 @@ function QueueItem({ task, isOverdue, dragListeners, dragAttributes, position, p
             <ArrowUpToLine className="mr-2 h-4 w-4" />
             {onMoveUp ? "Move up one position" : "Move to top priority"}
           </DropdownMenuItem>
+          {position !== undefined && onMovePosition && positionCount ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ListOrdered className="mr-2 h-4 w-4" />
+                Set position (#{position})
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-64 min-w-16 overflow-y-auto">
+                <PositionMenuItems position={position} positionCount={positionCount} onMovePosition={onMovePosition} onRemoveNumber={onRemoveNumber} />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : onRestoreNumber ? (
+            <DropdownMenuItem onClick={onRestoreNumber}>
+              <Hash className="mr-2 h-4 w-4" />
+              Add priority number
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={startConfirm}>
             <Check className="mr-2 h-4 w-4" />
             Mark as done
@@ -515,20 +542,20 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
   const isEmpty = items.length === 0 && !hasOverdue && unnumberedTasks.length === 0;
 
   return (
-    <Card ref={setDropRef} className={`glass transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
-      <CardHeader className="pb-2">
+    <Card ref={setDropRef} className={`glass gap-2 py-3 transition-colors md:gap-6 md:py-6 ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+      <CardHeader className="px-3 pb-0 md:px-6 md:pb-2">
         <CardTitle className="text-base">This Week</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 md:px-6">
         {isEmpty ? (
           <p className="text-sm text-muted-foreground">
             {isOver ? "Drop here to move into This Week" : "No tasks due this week."}
           </p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {items.length > 0 && (
               <SortableContext id="week-queue" items={items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
+                <div className="space-y-1.5 md:space-y-2">
                   {items.map((task, index) => (
                     <SortableQueueItem key={task.id} task={task} position={positionOffset + index + 1} positionCount={positionOffset + items.length} onMovePosition={selectPosition} onRemoveNumber={() => handleRemoveNumber(task.id)} onMoveUp={() => selectPosition(task.id, positionOffset + index - 1)} isOverdue={overdueIds?.has(task.id)} />
                   ))}
@@ -536,7 +563,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
               </SortableContext>
             )}
             {hasOverdue && (
-              <div className="space-y-2">
+              <div className="space-y-1.5 md:space-y-2">
                 <h4 className="flex items-center gap-1.5 text-xs font-medium text-red-400 uppercase tracking-wider">
                   <AlertTriangle className="h-3 w-3" />
                   Overdue ({overdueTasks.length})
@@ -547,7 +574,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
               </div>
             )}
             {unnumberedTasks.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1.5 md:space-y-2">
                 {unnumberedTasks.map((task) => (
                   <QueueItem key={task.id} task={task} isOverdue={overdueIds?.has(task.id)} onRestoreNumber={() => handleRestoreNumber(task.id)} />
                 ))}
@@ -555,7 +582,7 @@ export function WeekQueue({ tasks, overdueIds, overdueTasks, topTaskIds = [], un
             )}
           </div>
         )}
-        <div className="mt-3">
+        <div className="mt-2 md:mt-3">
           <QuickAddTask tasks={items} />
         </div>
       </CardContent>

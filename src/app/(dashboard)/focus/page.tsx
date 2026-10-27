@@ -5,7 +5,8 @@ import {
   getThisWeekTasks,
   getDismissedFocusTasks,
 } from "@/server/queries/analytics";
-import { getRecentWeeklyHours } from "@/server/queries/daily-logs";
+import { getWeeklyHoursHistory } from "@/server/queries/daily-logs";
+import { getBusinessContext } from "@/server/actions/business-context";
 import { RecentWeeksHoursChart } from "@/app/(dashboard)/analytics/components/hours-charts";
 import { getActiveGoals } from "@/server/queries/growth-phases";
 import { generateRecurringTasks } from "@/server/actions/recurring-tasks";
@@ -27,7 +28,7 @@ async function fetchAllocation(period: PeriodKey) {
 }
 
 export default async function FocusPage() {
-  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets, removedTasks, recentWeeklyHours] =
+  const [topTasks, overdueTasks, weekTasks, allocation, { goal90 }, scoredTasks, targets, removedTasks, weeklyHours] =
     await Promise.all([
       getTopTasksByLeverage(3),
       getOverdueTasks(),
@@ -37,7 +38,7 @@ export default async function FocusPage() {
       getScoredTaskSummaries(),
       db.select().from(categoryTargets),
       getDismissedFocusTasks(),
-      getRecentWeeklyHours(4),
+      getBusinessContext().then((ctx) => getWeeklyHoursHistory(ctx?.startDate || null, 4)),
       generateRecurringTasks({ skipRevalidate: true }),
     ]);
 
@@ -52,7 +53,7 @@ export default async function FocusPage() {
   const unnumberedWeekTasks = focusWeekTasks.filter((t) => t.unnumberedInFocus);
 
   return (
-    <div className="space-y-4 md:space-y-6 min-w-0">
+    <div className="space-y-3 md:space-y-6 min-w-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-lg md:text-2xl font-bold tracking-tight">Focus Board</h1>
@@ -73,18 +74,25 @@ export default async function FocusPage() {
           <TopTasks tasks={topTasks} overdueIds={overdueIds} queueTaskIds={filteredWeekTasks.map((t) => t.id)} />
         </section>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="order-2 md:order-1 space-y-4">
+        {/* DOM order is the mobile order (This Week, Weekly Hours, goal, allocation).
+            On desktop the queue spans the right column and the rest stack on the left;
+            the last left row is 1fr so a tall queue doesn't open gaps between cards. */}
+        <div className="grid items-start gap-3 md:grid-cols-2 md:grid-rows-[auto_auto_1fr] md:gap-4">
+          <div className="min-w-0 md:col-start-2 md:row-span-3 md:row-start-1">
+            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} unnumberedTasks={unnumberedWeekTasks} />
+          </div>
+          <div className="min-w-0 md:col-start-1 md:row-start-3">
+            <RecentWeeksHoursChart data={weeklyHours} />
+          </div>
+          <div className="min-w-0 md:col-start-1 md:row-start-1">
             <PhaseProgressRing phase={goal90} tasks={scoredTasks} />
+          </div>
+          <div className="min-w-0 md:col-start-1 md:row-start-2">
             <TimeAllocationTracker
               initialData={allocation}
               targets={targets}
               fetchAllocation={fetchAllocation}
             />
-            <RecentWeeksHoursChart data={recentWeeklyHours} />
-          </div>
-          <div className="order-1 md:order-2">
-            <WeekQueue tasks={filteredWeekTasks} overdueIds={overdueIds} overdueTasks={standaloneOverdue} topTaskIds={topTasks.map((t) => t.id)} unnumberedTasks={unnumberedWeekTasks} />
           </div>
         </div>
       </FocusDndProvider>

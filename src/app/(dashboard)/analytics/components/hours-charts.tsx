@@ -11,8 +11,13 @@ import {
   Label,
   LabelList,
 } from "recharts";
+import { useState } from "react";
+import { useReducedMotion } from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { RecentWeekHours } from "@/server/queries/daily-logs";
+import { Button } from "@/components/ui/button";
+import { averageCompletedWeekHours, formatWeekRange, sliceWeekWindow } from "@/lib/weekly-hours";
+import type { WeekHours } from "@/server/queries/daily-logs";
 
 const BAR_GREEN = "hsl(150 60% 45%)";
 
@@ -132,33 +137,50 @@ export function HoursValueLabel(props: Record<string, unknown>) {
   );
 }
 
-/** Compact weekly hours chart for the Focus board: the most recent weeks only. */
-export function RecentWeeksHoursChart({ data }: { data: RecentWeekHours[] }): React.ReactElement {
-  const hasData = data.some((d) => d.total > 0);
+const WINDOW_WEEKS = 4;
+
+/**
+ * Compact weekly hours chart for the Focus board. Always shows four weeks,
+ * starting at the most recent; the arrows step the window one week at a time.
+ */
+export function RecentWeeksHoursChart({ data }: { data: WeekHours[] }): React.ReactElement {
+  const [requestedOffset, setRequestedOffset] = useState(0);
+  const reduceMotion = useReducedMotion();
+  const { weeks, offset, maxOffset } = sliceWeekWindow(data, WINDOW_WEEKS, requestedOffset);
+  const hasAnyHours = data.some((d) => d.total > 0);
+  const average = averageCompletedWeekHours(weeks);
+  const first = weeks[0];
+  const last = weeks[weeks.length - 1];
 
   return (
-    <Card className="glass">
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+    <Card className="glass gap-2 py-3 md:gap-6 md:py-6">
+      <CardHeader className="px-3 pb-0 md:px-6 md:pb-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <CardTitle className="text-base">Weekly Hours</CardTitle>
-          <span className="text-xs text-muted-foreground">Last {data.length} weeks</span>
+          {hasAnyHours && (
+            <p className="text-xs text-muted-foreground">
+              Average weekly hours{" "}
+              <span className="font-semibold text-foreground tabular-nums">{formatHours(average)}</span>
+            </p>
+          )}
         </div>
       </CardHeader>
-      <CardContent>
-        {!hasData ? (
-          <p className="text-sm text-muted-foreground">No hours logged in the last {data.length} weeks.</p>
+      <CardContent className="px-3 md:px-6">
+        {!hasAnyHours ? (
+          <p className="text-sm text-muted-foreground">No hours logged yet.</p>
         ) : (
           <>
             <ul className="sr-only">
-              {data.map((d) => (
+              {weeks.map((d) => (
                 <li key={d.weekCommencing}>
                   Week of {d.label}: {formatHours(d.total)}
                 </li>
               ))}
             </ul>
-            <div aria-hidden="true">
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={data} margin={{ top: 20, right: 4, left: -16, bottom: 0 }}>
+            <div aria-hidden="true" className="h-40 md:h-[200px]">
+              {/* A positive initial size avoids Recharts' -1x-1 warning before it measures the box. */}
+              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 320, height: 160 }}>
+                <BarChart data={weeks} margin={{ top: 20, right: 4, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                   <XAxis dataKey="label" tick={TICK_STYLE} interval={0} tickLine={false} />
                   <YAxis tick={TICK_STYLE} allowDecimals={false} tickLine={false} axisLine={false} />
@@ -166,7 +188,7 @@ export function RecentWeeksHoursChart({ data }: { data: RecentWeekHours[] }): Re
                     cursor={{ fill: "var(--color-muted)", opacity: 0.4 }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
-                      const row = payload[0]?.payload as RecentWeekHours | undefined;
+                      const row = payload[0]?.payload as WeekHours | undefined;
                       if (!row) return null;
                       return (
                         <div style={tooltipBox}>
@@ -176,12 +198,55 @@ export function RecentWeeksHoursChart({ data }: { data: RecentWeekHours[] }): Re
                       );
                     }}
                   />
-                  <Bar dataKey="total" fill={BAR_GREEN} radius={[2, 2, 0, 0]} maxBarSize={48}>
+                  <Bar
+                    dataKey="total"
+                    fill={BAR_GREEN}
+                    radius={[2, 2, 0, 0]}
+                    maxBarSize={48}
+                    isAnimationActive={!reduceMotion}
+                  >
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     <LabelList dataKey="total" content={HoursValueLabel as any} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+            <div className="mt-1 grid grid-cols-[1fr_auto_1fr] items-center gap-2 md:mt-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 justify-self-start text-muted-foreground"
+                onClick={() => setRequestedOffset(offset + 1)}
+                disabled={offset >= maxOffset}
+                aria-label="Show earlier week"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <p className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+                {first && last ? formatWeekRange(first.weekCommencing, last.weekCommencing) : null}
+              </p>
+              <div className="flex items-center gap-1 justify-self-end">
+                {offset > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => setRequestedOffset(0)}
+                  >
+                    Latest
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground"
+                  onClick={() => setRequestedOffset(offset - 1)}
+                  disabled={offset === 0}
+                  aria-label="Show later week"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </>
         )}
